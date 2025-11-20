@@ -1,1 +1,16 @@
 /node_modules
+/dist
+*.log
+.env.local
+dev.db
+*.db
+
+# Ignore compiled JS files in source directories
+/**/*.js
+/**/*.js.map
+/**/*.d.ts
+/**/*.d.ts.map
+
+# But don't ignore JS in these directories
+!frontend/**
+!node_modules/**

@@ -9,10 +9,15 @@ import express, {
 import { AwilixContainer } from 'awilix'
 import { scopePerRequest } from 'awilix-express'
 import { registerRoutes } from './routes'
+import cors from 'cors'
 
 export function createHttpServer(rootContainer: AwilixContainer): Express {
   const app = express()
 
+  app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  }))
   app.use(express.json())
 
   app.use(scopePerRequest(rootContainer))

@@ -5,12 +5,13 @@ import type { Credential } from '../types'
 export async function importCredentials(file: File) {
   const formData = new FormData()
   formData.append('file', file)
-  const response = await axios.post('/api/credentials/import', formData)
+  const response = await createAxios({ 'Content-Type': 'multipart/form-data' })
+                            .post('/api/credentials/import', formData)
   return response.data
 }
 
 export async function listCredentials(params: Record<string, string>) {
-  const response = await axios.get('/api/credentials/list', {
+  const response = await createAxios().get('/api/credentials/list', {
     params
   })
 
@@ -18,27 +19,38 @@ export async function listCredentials(params: Record<string, string>) {
 }
 
 export async function startCheck() {
-  const response = await axios.post('/api/credentials/start-check')
+  const response = await createAxios().post('/api/credentials/start-check')
 
   return response.data
 }
 
 export async function stopCheck() {
-  const response = await axios.post('/api/credentials/stop-check')
+  const response = await createAxios().post('/api/credentials/stop-check')
 
   return response.data
 }
 
 export async function getCheck() {
-  const response = await axios.get('/api/credentials/get-check')
+  const response = await createAxios().get('/api/credentials/get-check')
 
   return response.data as boolean
 }
 
 export async function bulkDelete(ids: number[]) {
-  const response = await axios.post('/api/credentials/bulk-delete', {
+  const response = await createAxios().post('/api/credentials/bulk-delete', {
     ids: ids
   })
 
   return response.data
+}
+
+function createAxios(headers?: Record<string, string>) {
+  return axios.create({
+    baseURL: 'http://localhost:3000',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...headers
+    },
+  })
 }

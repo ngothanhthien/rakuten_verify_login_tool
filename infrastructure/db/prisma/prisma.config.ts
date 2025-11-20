@@ -1,12 +1,13 @@
-import { defineConfig, env } from 'prisma/config'
+// prisma.config.ts (đặt cạnh package.json backend)
+import "dotenv/config"
+import { defineConfig } from "prisma/config"
+import path from "path"
+
+const dbPath = path.join(process.cwd(), "dev.db")
 
 export default defineConfig({
-  schema: './schema.prisma',
-  migrations: {
-    path: './migrations',
-  },
+  schema: "./schema.prisma",
   datasource: {
-    //sqlite
-    url: 'file:./dev.db',
+    url: process.env.DATABASE_URL ?? `file:${dbPath}`,
   },
 })

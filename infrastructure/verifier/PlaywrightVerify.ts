@@ -6,13 +6,13 @@ const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?response_type
 
 export default class PlaywrightVerify implements IVerifyService {
   async verify(credential: Credential): Promise<boolean> {
-    try {
-      const browser = await chromium.launch({
-        channel: "chrome",
-        headless: false,
-      });
-      const page = await browser.newPage();
+    const browser = await chromium.launch({
+      channel: "chrome",
+      headless: false,
+    });
+    const page = await browser.newPage();
 
+    try {
       await page.goto(LOGIN_URL);
       await page.waitForLoadState('networkidle');
 
@@ -45,10 +45,10 @@ export default class PlaywrightVerify implements IVerifyService {
       }
 
       await page.waitForURL('**/coupon.rakuten.co.jp/**', { timeout: 15000 });
-
-      await browser.close();
     } catch (e) {
       return false
+    } finally {
+      await browser.close();
     }
 
     return true

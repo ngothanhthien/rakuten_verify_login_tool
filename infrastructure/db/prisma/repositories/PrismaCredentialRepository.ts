@@ -1,6 +1,6 @@
 import ICredentialRepository from "../../../../core/repositories/ICredentialRepository";
 import { prisma } from "../prismaClient";
-import { Credential } from "../../../../core/entities/Credential";
+import { Credential, CredentialProps } from "../../../../core/entities/Credential";
 import { CredentialStatus } from "../../../../core/value-objects/CredentialStatus";
 import CreateCredentialData from "../../../../core/value-objects/CreateCredentialData";
 import UpdateCredentialData from "../../../../core/value-objects/UpdateCredentialData";
@@ -8,7 +8,7 @@ import PaginateQuery from "../../../../core/value-objects/PaginateQuery";
 import PaginateResponse from "../../../../core/value-objects/PaginateResponse";
 import CredentialListFilter from "../../../../core/value-objects/CredentialListFilter";
 
-export default class implements ICredentialRepository {
+export default class PrismaCredentialRepository implements ICredentialRepository {
   async isExists(email: string): Promise<boolean> {
     const existing = await prisma.credential.findUnique({
       where: { email },
@@ -40,7 +40,7 @@ export default class implements ICredentialRepository {
     return this.toEntities(record);
   }
 
-  async paginatedList(paginateQuery: PaginateQuery, filter: CredentialListFilter): Promise<PaginateResponse<Credential>> {
+  async paginatedList(paginateQuery: PaginateQuery, filter: CredentialListFilter): Promise<PaginateResponse<CredentialProps>> {
     const where = {};
 
     if (filter.status) {
@@ -57,18 +57,22 @@ export default class implements ICredentialRepository {
       skip: (paginateQuery.page - 1) * paginateQuery.pageSize,
       take: paginateQuery.pageSize,
       orderBy: {
-        createdAt: "desc",
+        updatedAt: "desc",
       },
       where,
     });
 
+    const count = await prisma.credential.count({
+      where,
+    });
+
     return {
-      data: records.map(this.toEntities),
-      totalRecords: records.length,
-      totalPages: Math.ceil(records.length / paginateQuery.pageSize),
+      data: records.map(this.toEntities).map(credential => credential.toJSON()),
+      totalRecords: count,
+      totalPages: Math.ceil(count / paginateQuery.pageSize),
       currentPage: paginateQuery.page,
       pageSize: paginateQuery.pageSize,
-      hasNextPage: paginateQuery.page < Math.ceil(records.length / paginateQuery.pageSize),
+      hasNextPage: paginateQuery.page < Math.ceil(count / paginateQuery.pageSize),
       hasPreviousPage: paginateQuery.page > 1,
     };
   }
@@ -99,6 +103,6 @@ export default class implements ICredentialRepository {
       password: model.password,
       status: model.status as CredentialStatus,
       checkedAt: model.checkedAt,
-    });
+    })
   }
 }

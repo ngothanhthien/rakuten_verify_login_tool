@@ -1,4 +1,4 @@
-export type CredentialStatus = 'UNKNOWN' | 'VALID' | 'INVALID';
+export type CredentialStatus = 'UNKNOWN' | 'ACTIVE' | 'INACTIVE';
 
 export interface Credential {
   id: number;

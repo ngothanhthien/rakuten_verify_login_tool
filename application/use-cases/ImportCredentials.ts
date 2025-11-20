@@ -7,8 +7,8 @@ export default class ImportCredentials {
     private readonly repository: ICredentialRepository,
   ) {}
 
-  async execute(): Promise<{ imported: number; skipped: number }> {
-    const rawUsers = await this.source.readAll()
+  async execute(file: Express.Multer.File): Promise<{ imported: number; skipped: number }> {
+    const rawUsers = await this.source.readAll(file)
 
     let imported = 0
     let skipped = 0

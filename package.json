@@ -6,8 +6,10 @@
     "awilix": "^12.0.5",
     "awilix-express": "^9.0.2",
     "better-sqlite3": "^12.4.1",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "multer": "^2.0.2",
     "patchright": "^1.56.1",
     "pg": "^8.16.3",
     "ws": "^8.18.3"
@@ -16,18 +18,22 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "build": "tsc",
+    "dev": "tsx main.ts",
+    "start": "tsx main.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "description": "",
-  "type": "module",
   "devDependencies": {
     "@types/express": "^5.0.5",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/pg": "^8.15.6",
     "@types/ws": "^8.18.1",
     "prisma": "^7.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
 }

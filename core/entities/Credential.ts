@@ -23,4 +23,13 @@ export class Credential {
   static create(props: CredentialProps) {
     return new Credential(props);
   }
+  toJSON() {
+    return {
+      id: this.id,
+      email: this.email,
+      password: this.password,
+      status: this.status,
+      checkedAt: this.checkedAt,
+    }
+  }
 }

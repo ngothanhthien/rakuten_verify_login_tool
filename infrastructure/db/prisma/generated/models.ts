@@ -8,5 +8,5 @@
  *
  * 🟢 You can import this file directly.
  */
-export type * from './models/Credential.ts'
-export type * from './commonInputTypes.ts'
+export type * from './models/Credential.js'
+export type * from './commonInputTypes.js'
