@@ -12,5 +12,6 @@ export default interface ICredentialRepository {
   update(id: number, data: UpdateCredentialData): Promise<Credential>;
   paginatedList(paginateQuery: PaginateQuery, filter: CredentialListFilter): Promise<PaginateResponse<CredentialProps>>;
   findPending(limit: number): Promise<Credential[]>;
+  findByStatus(status: string): Promise<Credential[]>;
   bulkDelete(ids: number[]): Promise<void>;
 }

@@ -30,7 +30,7 @@ async function fetchCredentials() {
   try {
     const queryParams = getAllQueryParams()
     const response = await api.listCredentials(queryParams as Record<string, string>)
-    
+
     credentials.value = response.data
     pagination.value = {
       totalPages: response.totalPages,
@@ -66,7 +66,7 @@ function toggleAllSelection() {
 function toggleSelection(id: string | number) {
   const numId = typeof id === 'string' ? parseInt(id) : id
   const index = selectedIds.value.indexOf(numId)
-  
+
   if (index === -1) {
     selectedIds.value.push(numId)
   } else {
@@ -93,12 +93,21 @@ async function handleImport(file: File) {
   }
 }
 
+async function handleExport() {
+  try {
+    await api.exportActiveCredentials()
+  } catch (error) {
+    console.error('Failed to export credentials:', error)
+    alert('Failed to export credentials. Please try again.')
+  }
+}
+
 async function handleBulkDelete() {
   if (selectedIds.value.length === 0) return
-  
+
   const confirmed = confirm(`Are you sure you want to delete ${selectedIds.value.length} credential(s)?`)
   if (!confirmed) return
-  
+
   try {
     await api.bulkDelete(selectedIds.value)
     await fetchCredentials()
@@ -111,7 +120,7 @@ async function handleBulkDelete() {
 async function handleDeleteCredential(credential: Credential) {
   const confirmed = confirm(`Are you sure you want to delete the credential for ${credential.email}?`)
   if (!confirmed) return
-  
+
   try {
     await api.bulkDelete([credential.id])
     await fetchCredentials()
@@ -170,6 +179,7 @@ onMounted(async () => {
       :selected-count="selectedCount"
       :is-checking="isChecking"
       @import="handleImport"
+      @export="handleExport"
       @bulk-delete="handleBulkDelete"
       @start-check="handleStartCheck"
       @stop-check="handleStopCheck"

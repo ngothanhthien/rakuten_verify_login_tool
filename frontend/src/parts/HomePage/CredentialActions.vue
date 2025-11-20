@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { Button } from '@/components/ui/button'
-import { Upload, Trash2, Play, StopCircle } from 'lucide-vue-next'
+import { Upload, Trash2, Play, StopCircle, Download } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 interface Props {
@@ -12,6 +12,7 @@ defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'import', file: File): void
+  (e: 'export'): void
   (e: 'bulkDelete'): void
   (e: 'startCheck'): void
   (e: 'stopCheck'): void
@@ -52,6 +53,15 @@ function handleFileChange(event: Event) {
       >
         <Upload class="mr-2 h-4 w-4" />
         Import Credentials
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        @click="emit('export')"
+      >
+        <Download class="mr-2 h-4 w-4" />
+        Export Active
       </Button>
 
       <Button

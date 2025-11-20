@@ -23,34 +23,37 @@ export default class PlaywrightVerify implements IVerifyService {
       await page.waitForURL('**/sign_in/password');
       await page.getByRole('textbox', { name: 'Password' }).fill(credential.password);
 
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(1000)
 
-      try {
-        const nextButton = page.getByRole('button', { name: 'Next' }).first();
-        await nextButton.waitFor({ state: 'visible', timeout: 5000 });
+      // Click the Next button - simplified without unnecessary waits
+      const nextButton = page.getByRole('button', { name: 'Next' }).first();
+      await nextButton.waitFor({ state: 'visible', timeout: 5000 });
+      await nextButton.click();
 
-        const isDisabled = await nextButton.isDisabled();
-        if (isDisabled) {
-          await page.waitForTimeout(2000);
-        }
+      // Race condition: wait for EITHER success OR failure
+      // This dramatically speeds up invalid password detection
+      const result = await Promise.race([
+        // Success path: URL changes to coupon.rakuten.co.jp
+        page.waitForURL('**/coupon.rakuten.co.jp/**', { timeout: 15000 })
+          .then(() => true),
 
-        await nextButton.click({ timeout: 10000 });
-        await page.waitForLoadState('domcontentloaded');
-      } catch (clickError) {
-        try {
-          await page.locator('button:has-text("Next")').first().click({ force: true, timeout: 5000 });
-        } catch (altError) {
-          await page.keyboard.press('Enter');
-        }
-      }
+        // Fast-fail path 1: Error message appears (invalid credentials)
+        page.waitForSelector('text=Username and/or password are incorrect', { timeout: 5000 })
+          .then(() => false),
 
-      await page.waitForURL('**/coupon.rakuten.co.jp/**', { timeout: 15000 });
+        // Fast-fail path 2: Page stays on password URL after 3 seconds
+        page.waitForTimeout(3000).then(async () => {
+          const currentUrl = page.url();
+          // If still on password page after 3 seconds, it's likely a failure
+          return currentUrl.includes('/sign_in/password') ? false : true;
+        })
+      ]);
+
+      return result;
     } catch (e) {
-      return false
+      return false;
     } finally {
       await browser.close();
     }
-
-    return true
   }
 }

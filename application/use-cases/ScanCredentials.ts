@@ -16,15 +16,13 @@ export default class ScanCredentialsUseCase {
     for (const credential of credentials) {
       const verified = await this.verifyService.verify(credential)
       await this.repository.update(credential.id, { status: this.getStatus(verified), checkedAt: new Date() })
-      this.notify(credential, verified)
+      if (verified) {
+        this.uiNotifier.notify(`Credential ${credential.email}:${credential.password} verified`, { color: 'green' })
+      }
     }
   }
 
   private getStatus(verified: boolean): CredentialStatus {
     return verified ? CredentialStatus.ACTIVE : CredentialStatus.INACTIVE
-  }
-
-  private notify(credential: Credential, verified: boolean): void {
-    this.uiNotifier.notify(`Credential ${credential.email} verified: ${verified}`, { color: verified ? 'green' : 'red' })
   }
 }

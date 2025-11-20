@@ -1,5 +1,6 @@
 import ICredentialRepository from "../../core/repositories/ICredentialRepository";
 import ImportCredentialsUseCase from "../../application/use-cases/ImportCredentials";
+import ExportCredentials from "../../application/use-cases/ExportCredentials";
 import ICredentialSource from "../../application/ports/ICredentialSource";
 import type { Request, Response } from 'express'
 import { CredentialStatus } from "../../core/value-objects/CredentialStatus";
@@ -72,5 +73,19 @@ export default class CredentialController {
 
     await this.credentialRepository.bulkDelete(req.body.ids)
     res.json({ message: 'Bulk deleted' })
+  }
+
+  async export(req: Request, res: Response) {
+    try {
+      const action = new ExportCredentials(this.credentialRepository)
+      const content = await action.execute()
+      
+      res.setHeader('Content-Type', 'text/plain')
+      res.setHeader('Content-Disposition', 'attachment; filename="credentials.txt"')
+      res.send(content)
+    } catch (error) {
+      console.error('Error in export:', error)
+      res.status(500).json({ message: error.message })
+    }
   }
 }

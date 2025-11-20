@@ -90,6 +90,18 @@ export default class PrismaCredentialRepository implements ICredentialRepository
     return records.map(this.toEntities);
   }
 
+  async findByStatus(status: string): Promise<Credential[]> {
+    const records = await prisma.credential.findMany({
+      where: {
+        status: status,
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+    return records.map(this.toEntities);
+  }
+
   async bulkDelete(ids: number[]): Promise<void> {
     await prisma.credential.deleteMany({
       where: { id: { in: ids } },

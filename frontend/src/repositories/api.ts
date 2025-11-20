@@ -44,6 +44,22 @@ export async function bulkDelete(ids: number[]) {
   return response.data
 }
 
+export async function exportActiveCredentials() {
+  const response = await createAxios().get('/api/credentials/export', {
+    responseType: 'blob'
+  })
+
+  // Create download link
+  const url = window.URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', 'credentials.txt')
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 function createAxios(headers?: Record<string, string>) {
   return axios.create({
     baseURL: 'http://localhost:3000',
