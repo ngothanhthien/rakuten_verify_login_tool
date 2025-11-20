@@ -1,4 +1,4 @@
-import { asClass, asFunction, createContainer, InjectionMode } from 'awilix'
+import { asClass, createContainer, InjectionMode } from 'awilix'
 import PrismaCredentialRepository from './infrastructure/db/prisma/repositories/PrismaCredentialRepository'
 import TelegramNotifier from './infrastructure/notifier/TelegramNotifier'
 import FileCredentialImportSource from './infrastructure/CredentialImportSource/FileCredentialImportSource'
@@ -26,14 +26,10 @@ export function buildContainer() {
     uiNotifier: asClass(TelegramNotifier).scoped(),
 
     // Register CredentialCheckRunner with configuration
-    credentialCheckRunner: asFunction(({ credentialRepository, verifyService, uiNotifier }) => {
-      return new CredentialCheckRunner(
-        credentialRepository,
-        verifyService,
-        uiNotifier,
-        runnerConfig
-      )
-    }).singleton(),
+    // CLASSIC mode matches constructor parameter names to registered dependencies
+    credentialCheckRunner: asClass(CredentialCheckRunner)
+      .inject(() => ({ config: runnerConfig }))
+      .singleton(),
 
     credentialController: asClass(CredentialController).scoped(),
   })
