@@ -2,10 +2,11 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useQueryParams } from '@/composables/useQueryParams'
 import { useRoute } from 'vue-router'
-import type { Credential, PaginationProps } from '@/types'
+import type { Credential, PaginationProps, CredentialStatistics } from '@/types'
 import * as api from '@/repositories/api'
 import CredentialTable from '@/parts/HomePage/CredentialTable.vue'
 import CredentialActions from '@/parts/HomePage/CredentialActions.vue'
+import CredentialStatisticsView from '@/parts/HomePage/CredentialStatistics.vue'
 
 const route = useRoute()
 const { getAllQueryParams, queryKey } = useQueryParams()
@@ -18,8 +19,10 @@ const pagination = ref<PaginationProps>({
   totalRows: 0,
   totalSelectedRows: 0
 })
+const statistics = ref<CredentialStatistics | null>(null)
 const isChecking = ref(false)
 const loading = ref(false)
+const statisticsLoading = ref(false)
 
 // Computed
 const selectedCount = computed(() => selectedIds.value.length)
@@ -50,6 +53,18 @@ async function fetchCheckStatus() {
     isChecking.value = await api.getCheck()
   } catch (error) {
     console.error('Failed to fetch check status:', error)
+  }
+}
+
+// Fetch statistics
+async function fetchStatistics() {
+  statisticsLoading.value = true
+  try {
+    statistics.value = await api.getStatistics()
+  } catch (error) {
+    console.error('Failed to fetch statistics:', error)
+  } finally {
+    statisticsLoading.value = false
   }
 }
 
@@ -87,6 +102,7 @@ async function handleImport(file: File) {
   try {
     await api.importCredentials(file)
     await fetchCredentials()
+    await fetchStatistics()
     selectedIds.value = []
   } catch (error) {
     console.error('Failed to import credentials:', error)
@@ -111,6 +127,7 @@ async function handleBulkDelete() {
   try {
     await api.bulkDelete(selectedIds.value)
     await fetchCredentials()
+    await fetchStatistics()
     selectedIds.value = []
   } catch (error) {
     console.error('Failed to delete credentials:', error)
@@ -124,6 +141,7 @@ async function handleDeleteCredential(credential: Credential) {
   try {
     await api.bulkDelete([credential.id])
     await fetchCredentials()
+    await fetchStatistics()
     // Remove from selection if it was selected
     const index = selectedIds.value.indexOf(credential.id)
     if (index !== -1) {
@@ -161,7 +179,8 @@ watch(queryKey, () => {
 onMounted(async () => {
   await Promise.all([
     fetchCredentials(),
-    fetchCheckStatus()
+    fetchCheckStatus(),
+    fetchStatistics()
   ])
 })
 </script>
@@ -174,6 +193,11 @@ onMounted(async () => {
         Manage and monitor your Rakuten credentials
       </p>
     </div>
+
+    <CredentialStatisticsView
+      :statistics="statistics"
+      :loading="statisticsLoading"
+    />
 
     <CredentialActions
       :selected-count="selectedCount"

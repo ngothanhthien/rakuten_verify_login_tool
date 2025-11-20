@@ -88,4 +88,14 @@ export default class CredentialController {
       res.status(500).json({ message: error.message })
     }
   }
+
+  async statistics(req: Request, res: Response) {
+    try {
+      const statistics = await this.credentialRepository.getStatistics()
+      res.json(statistics)
+    } catch (error) {
+      console.error('Error in statistics:', error)
+      res.status(500).json({ message: error.message })
+    }
+  }
 }

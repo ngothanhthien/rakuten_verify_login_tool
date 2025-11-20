@@ -7,6 +7,7 @@ import UpdateCredentialData from "../../../../core/value-objects/UpdateCredentia
 import PaginateQuery from "../../../../core/value-objects/PaginateQuery";
 import PaginateResponse from "../../../../core/value-objects/PaginateResponse";
 import CredentialListFilter from "../../../../core/value-objects/CredentialListFilter";
+import type CredentialStatistics from "../../../../core/value-objects/CredentialStatistics";
 
 export default class PrismaCredentialRepository implements ICredentialRepository {
   async isExists(email: string): Promise<boolean> {
@@ -106,6 +107,27 @@ export default class PrismaCredentialRepository implements ICredentialRepository
     await prisma.credential.deleteMany({
       where: { id: { in: ids } },
     });
+  }
+
+  async getStatistics(): Promise<CredentialStatistics> {
+    const total = await prisma.credential.count();
+    
+    const groupByStatus = await prisma.credential.groupBy({
+      by: ['status'],
+      _count: {
+        status: true,
+      },
+    });
+
+    const byStatus = groupByStatus.map(item => ({
+      status: item.status,
+      count: item._count.status,
+    }));
+
+    return {
+      total,
+      byStatus,
+    };
   }
 
   private toEntities(model) {

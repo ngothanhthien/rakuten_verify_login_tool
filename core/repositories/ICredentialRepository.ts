@@ -5,6 +5,7 @@ import PaginateQuery from "../value-objects/PaginateQuery";
 import CredentialListFilter from "../value-objects/CredentialListFilter";
 import PaginateResponse from "../value-objects/PaginateResponse";
 import type { CredentialProps } from "../entities/Credential";
+import type CredentialStatistics from "../value-objects/CredentialStatistics";
 
 export default interface ICredentialRepository {
   isExists(email: string): Promise<boolean>;
@@ -14,4 +15,5 @@ export default interface ICredentialRepository {
   findPending(limit: number): Promise<Credential[]>;
   findByStatus(status: string): Promise<Credential[]>;
   bulkDelete(ids: number[]): Promise<void>;
+  getStatistics(): Promise<CredentialStatistics>;
 }

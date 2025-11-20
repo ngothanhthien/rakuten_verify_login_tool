@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Pagination } from '../types'
+import type { Pagination, CredentialStatistics } from '../types'
 import type { Credential } from '../types'
 
 export async function importCredentials(file: File) {
@@ -58,6 +58,11 @@ export async function exportActiveCredentials() {
   link.click()
   link.remove()
   window.URL.revokeObjectURL(url)
+}
+
+export async function getStatistics() {
+  const response = await createAxios().get('/api/credentials/statistics')
+  return response.data as CredentialStatistics
 }
 
 function createAxios(headers?: Record<string, string>) {

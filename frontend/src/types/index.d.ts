@@ -27,3 +27,13 @@ export interface PaginationProps {
 export interface QueryParams {
   [key: string]: string | number | undefined | string[] | number[]
 }
+
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+export interface CredentialStatistics {
+  total: number;
+  byStatus: StatusCount[];
+}
