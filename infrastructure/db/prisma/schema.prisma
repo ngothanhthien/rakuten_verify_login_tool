@@ -15,4 +15,6 @@ model Credential {
   updatedAt DateTime @updatedAt
   status String @default("UNKNOWN")
   checkedAt DateTime?
+  processingBy String?
+  claimedAt DateTime?
 }

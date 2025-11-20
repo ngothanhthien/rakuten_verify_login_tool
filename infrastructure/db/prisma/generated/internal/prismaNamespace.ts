@@ -521,7 +521,9 @@ export const CredentialScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   status: 'status',
-  checkedAt: 'checkedAt'
+  checkedAt: 'checkedAt',
+  processingBy: 'processingBy',
+  claimedAt: 'claimedAt'
 } as const
 
 export type CredentialScalarFieldEnum = (typeof CredentialScalarFieldEnum)[keyof typeof CredentialScalarFieldEnum]

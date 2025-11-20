@@ -79,7 +79,7 @@ export default class CredentialController {
     try {
       const action = new ExportCredentials(this.credentialRepository)
       const content = await action.execute()
-      
+
       res.setHeader('Content-Type', 'text/plain')
       res.setHeader('Content-Disposition', 'attachment; filename="credentials.txt"')
       res.send(content)

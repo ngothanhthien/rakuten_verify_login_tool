@@ -111,7 +111,7 @@ export default class PrismaCredentialRepository implements ICredentialRepository
 
   async getStatistics(): Promise<CredentialStatistics> {
     const total = await prisma.credential.count();
-    
+
     const groupByStatus = await prisma.credential.groupBy({
       by: ['status'],
       _count: {
@@ -130,7 +130,96 @@ export default class PrismaCredentialRepository implements ICredentialRepository
     };
   }
 
-  private toEntities(model) {
+  /**
+   * Atomically find and claim pending credentials for processing.
+   * This prevents multiple workers from processing the same credentials.
+   *
+   * @param limit Maximum number of credentials to claim
+   * @param workerId Unique identifier for the worker claiming the credentials
+   * @returns Array of claimed credentials
+   */
+  async findAndClaimPending(limit: number, workerId: string): Promise<Credential[]> {
+    // Use a transaction to ensure atomicity
+    return await prisma.$transaction(async (tx) => {
+      // Find pending credentials that are not currently being processed
+      const pendingCredentials = await tx.credential.findMany({
+        where: {
+          status: "UNKNOWN",
+          processingBy: null,
+        },
+        take: limit,
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+
+      if (pendingCredentials.length === 0) {
+        return [];
+      }
+
+      // Claim these credentials by setting processingBy and claimedAt
+      const credentialIds = pendingCredentials.map(c => c.id);
+      await tx.credential.updateMany({
+        where: {
+          id: { in: credentialIds },
+        },
+        data: {
+          processingBy: workerId,
+          claimedAt: new Date(),
+        },
+      });
+
+      // Fetch and return the updated credentials
+      const claimedCredentials = await tx.credential.findMany({
+        where: {
+          id: { in: credentialIds },
+        },
+      });
+
+      return claimedCredentials.map(this.toEntities);
+    });
+  }
+
+  /**
+   * Release the claim on a credential after processing is complete.
+   *
+   * @param credentialId ID of the credential to release
+   */
+  async releaseClaim(credentialId: number): Promise<void> {
+    await prisma.credential.update({
+      where: { id: credentialId },
+      data: {
+        processingBy: null,
+        claimedAt: null,
+      },
+    });
+  }
+
+  /**
+   * Release stale claims that have been held for too long.
+   * This is a safety mechanism to recover from worker crashes.
+   *
+   * @param minutes Number of minutes after which a claim is considered stale
+   * @returns Number of claims released
+   */
+  async releaseStaleClaimsOlderThan(minutes: number): Promise<number> {
+    const staleThreshold = new Date(Date.now() - minutes * 60 * 1000);
+
+    const result = await prisma.credential.updateMany({
+      where: {
+        processingBy: { not: null },
+        claimedAt: { lt: staleThreshold },
+      },
+      data: {
+        processingBy: null,
+        claimedAt: null,
+      },
+    });
+
+    return result.count;
+  }
+
+  private toEntities(model: any) {
     return Credential.create({
       id: model.id,
       email: model.email,
