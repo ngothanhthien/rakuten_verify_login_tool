@@ -15,6 +15,7 @@ export default interface ICredentialRepository {
   findPending(limit: number): Promise<Credential[]>;
   findByStatus(status: string): Promise<Credential[]>;
   bulkDelete(ids: number[]): Promise<void>;
+  deleteUnchecked(): Promise<number>;
   getStatistics(): Promise<CredentialStatistics>;
 
   // Parallel processing support - atomic claim/release operations

@@ -134,6 +134,26 @@ async function handleBulkDelete() {
   }
 }
 
+async function handleDeleteUnchecked() {
+  const confirmed = confirm(
+    'Are you sure you want to delete all unchecked credentials?\n\n' +
+    'This will delete all credentials that have never been verified and are not currently being processed.\n\n' +
+    'This action cannot be undone.'
+  )
+  if (!confirmed) return
+
+  try {
+    const result = await api.deleteUnchecked()
+    alert(`Successfully deleted ${result.deletedCount} unchecked credential(s)`)
+    await fetchCredentials()
+    await fetchStatistics()
+    selectedIds.value = []
+  } catch (error) {
+    console.error('Failed to delete unchecked credentials:', error)
+    alert('Failed to delete unchecked credentials. Please try again.')
+  }
+}
+
 async function handleDeleteCredential(credential: Credential) {
   const confirmed = confirm(`Are you sure you want to delete the credential for ${credential.email}?`)
   if (!confirmed) return
@@ -205,6 +225,7 @@ onMounted(async () => {
       @import="handleImport"
       @export="handleExport"
       @bulk-delete="handleBulkDelete"
+      @delete-unchecked="handleDeleteUnchecked"
       @start-check="handleStartCheck"
       @stop-check="handleStopCheck"
     />

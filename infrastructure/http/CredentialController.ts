@@ -1,6 +1,7 @@
 import ICredentialRepository from "../../core/repositories/ICredentialRepository";
 import ImportCredentialsUseCase from "../../application/use-cases/ImportCredentials";
 import ExportCredentials from "../../application/use-cases/ExportCredentials";
+import DeleteUncheckedCredentials from "../../application/use-cases/DeleteUncheckedCredentials";
 import ICredentialSource from "../../application/ports/ICredentialSource";
 import type { Request, Response } from 'express'
 import { CredentialStatus } from "../../core/value-objects/CredentialStatus";
@@ -73,6 +74,27 @@ export default class CredentialController {
 
     await this.credentialRepository.bulkDelete(req.body.ids)
     res.json({ message: 'Bulk deleted' })
+  }
+
+  async deleteUnchecked(req: Request, res: Response) {
+    try {
+      const isRunnerRunning = this.credentialCheckRunner.getStatus().isRunning;
+
+      if (isRunnerRunning) {
+        return res.status(400).json({ message: 'Check is running, You need to stop it first' })
+      }
+
+      const action = new DeleteUncheckedCredentials(this.credentialRepository)
+      const deletedCount = await action.execute()
+
+      res.json({
+        message: 'Unchecked credentials deleted successfully',
+        deletedCount
+      })
+    } catch (error) {
+      console.error('Error in deleteUnchecked:', error)
+      res.status(500).json({ message: error.message })
+    }
   }
 
   async export(req: Request, res: Response) {

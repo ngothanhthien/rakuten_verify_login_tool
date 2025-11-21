@@ -44,6 +44,12 @@ export async function bulkDelete(ids: number[]) {
   return response.data
 }
 
+export async function deleteUnchecked() {
+  const response = await createAxios().post('/api/credentials/delete-unchecked')
+
+  return response.data as { message: string; deletedCount: number }
+}
+
 export async function exportActiveCredentials() {
   const response = await createAxios().get('/api/credentials/export', {
     responseType: 'blob'

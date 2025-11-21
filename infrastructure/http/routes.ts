@@ -18,6 +18,7 @@ export function registerRoutes(app: Express) {
   router.post('/credentials/stop-check', api('stopCheck'))
   router.get('/credentials/get-check', api('getCheck'))
   router.post('/credentials/bulk-delete', api('bulkDelete'))
+  router.post('/credentials/delete-unchecked', api('deleteUnchecked'))
 
   app.use('/api', router)
 }

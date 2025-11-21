@@ -8,7 +8,7 @@ export default class PlaywrightVerify implements IVerifyService {
   async verify(credential: Credential): Promise<boolean> {
     const browser = await chromium.launch({
       channel: "chrome",
-      headless: false,
+      headless: true,
     });
     const page = await browser.newPage();
 

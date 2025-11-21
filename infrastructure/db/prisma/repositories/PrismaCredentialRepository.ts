@@ -109,6 +109,27 @@ export default class PrismaCredentialRepository implements ICredentialRepository
     });
   }
 
+  /**
+   * Delete all credentials that have never been verified and are not currently being processed.
+   * Only deletes credentials where:
+   * - checkedAt is null (never been verified)
+   * - processingBy is null (not currently being processed)
+   * - claimedAt is null (not currently claimed by any worker)
+   *
+   * @returns Number of credentials deleted
+   */
+  async deleteUnchecked(): Promise<number> {
+    const result = await prisma.credential.deleteMany({
+      where: {
+        checkedAt: null,
+        processingBy: null,
+        claimedAt: null,
+      },
+    });
+
+    return result.count;
+  }
+
   async getStatistics(): Promise<CredentialStatistics> {
     const total = await prisma.credential.count();
 

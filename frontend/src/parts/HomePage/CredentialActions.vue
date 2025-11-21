@@ -14,6 +14,7 @@ const emit = defineEmits<{
   (e: 'import', file: File): void
   (e: 'export'): void
   (e: 'bulkDelete'): void
+  (e: 'deleteUnchecked'): void
   (e: 'startCheck'): void
   (e: 'stopCheck'): void
 }>()
@@ -72,6 +73,15 @@ function handleFileChange(event: Event) {
       >
         <Trash2 class="mr-2 h-4 w-4" />
         Delete {{ selectedCount }} selected
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        @click="emit('deleteUnchecked')"
+      >
+        <Trash2 class="mr-2 h-4 w-4" />
+        Delete Unchecked
       </Button>
     </div>
 

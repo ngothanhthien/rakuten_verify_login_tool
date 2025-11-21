@@ -10,6 +10,7 @@ import { AwilixContainer } from 'awilix'
 import { scopePerRequest } from 'awilix-express'
 import { registerRoutes } from './routes'
 import cors from 'cors'
+import path from 'path'
 
 export function createHttpServer(rootContainer: AwilixContainer): Express {
   const app = express()
@@ -23,6 +24,9 @@ export function createHttpServer(rootContainer: AwilixContainer): Express {
   app.use(scopePerRequest(rootContainer))
 
   registerRoutes(app)
+
+  const staticDir = path.join(process.cwd(), "frontend-dist")
+  app.use(express.static(staticDir))
 
   app.use((req: Request, res: Response) => {
     res.status(404).json({
