@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider      = "prisma-client-js"
+  output        = "../../../node_modules/.prisma/client"
+  binaryTargets = ["native", "windows"]
 }
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model Credential {

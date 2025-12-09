@@ -4,7 +4,7 @@ import { defineConfig } from "prisma/config"
 import path from "path"
 
 // Load .env from project root (when running from prisma directory, go 3 levels up)
-const rootDir = path.resolve(__dirname, "../../..")
+const rootDir = process.cwd()
 config({ path: path.join(rootDir, ".env") })
 
 // Database file will be in project root

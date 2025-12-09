@@ -8,9 +8,12 @@ export default class PlaywrightVerify implements IVerifyService {
   async verify(credential: Credential): Promise<boolean> {
     const browser = await chromium.launch({
       channel: "chrome",
-      headless: true,
+      headless: false,
     });
-    const page = await browser.newPage();
+    const context = await browser.newContext({
+      locale: 'en-US'
+    });
+    const page = await context.newPage();
 
     try {
       await page.goto(LOGIN_URL);
@@ -53,6 +56,7 @@ export default class PlaywrightVerify implements IVerifyService {
     } catch (e) {
       return false;
     } finally {
+      await context.close();
       await browser.close();
     }
   }

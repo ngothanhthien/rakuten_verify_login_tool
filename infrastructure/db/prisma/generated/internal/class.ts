@@ -20,7 +20,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.0.0",
   "engineVersion": "0c19ccc313cf9911a90d99d2ac2eb0280c76c513",
   "activeProvider": "sqlite",
-  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"./generated\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n}\n\nmodel Credential {\n  id           Int       @id @default(autoincrement())\n  email        String    @unique\n  password     String\n  createdAt    DateTime  @default(now())\n  updatedAt    DateTime  @updatedAt\n  status       String    @default(\"UNKNOWN\")\n  checkedAt    DateTime?\n  processingBy String?\n  claimedAt    DateTime?\n}\n",
+  "inlineSchema": "generator client {\n  provider      = \"prisma-client\"\n  output        = \"./generated\"\n  binaryTargets = [\"native\", \"windows\"]\n}\n\ndatasource db {\n  provider = \"sqlite\"\n}\n\nmodel Credential {\n  id           Int       @id @default(autoincrement())\n  email        String    @unique\n  password     String\n  createdAt    DateTime  @default(now())\n  updatedAt    DateTime  @updatedAt\n  status       String    @default(\"UNKNOWN\")\n  checkedAt    DateTime?\n  processingBy String?\n  claimedAt    DateTime?\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},

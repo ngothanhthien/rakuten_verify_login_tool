@@ -34,3 +34,17 @@ rakuten/
 - All `.js` files in source directories are ignored by git (they shouldn't exist)
 - The `dist/` folder is only used if you manually run `npm run build`
 - Never manually create `.js` files in source directories
+
+## Package for Windows (single folder)
+
+1. Install deps and generate Prisma client (fetches Windows query engine): `npm install && npm run prisma:generate`.
+2. Build the Vue frontend once: `npm run build:frontend` (copies output to `frontend-dist/`).
+3. Package the backend + runtime files with tsup: `npm run package:windows`.
+   - Output: `dist-windows/` plus `dist-windows.zip` (if `zip` CLI is available).
+4. Ship `dist-windows.zip` to Windows, unzip, and double-click `start.bat` (requires Node.js and Chrome installed on the machine).
+
+What gets included:
+- Bundled backend (`main.cjs`) built with tsup for Node 18+
+- Frontend assets (`frontend-dist/`)
+- SQLite DB copy (`dev.db`) and `.env` pointing to it
+- Prisma query engine binaries under `node_modules/.prisma/client`

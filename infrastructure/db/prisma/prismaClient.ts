@@ -1,14 +1,11 @@
-import "dotenv/config"
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3"
-import { PrismaClient } from "./generated/client"
+import { PrismaClient } from "@prisma/client"
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL!, // file:./dev.db
-})
-
+// Standard Prisma Client initialization without native adapter
+// This allows for better portability (copying query engine binaries)
+// Standard Prisma Client initialization without native adapter
+// This allows for better portability (copying query engine binaries)
 const prisma = new PrismaClient({
-  adapter,
-  log: ["error", "warn"],
+  log: ["error", "warn"]
 })
 
 export { prisma }

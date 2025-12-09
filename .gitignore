@@ -16,3 +16,4 @@ dev.db
 !node_modules/**
 /releases
 /frontend-dist
+/dist-windows

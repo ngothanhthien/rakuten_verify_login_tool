@@ -8,11 +8,16 @@ set -ea  # Exit on error
 echo "🚀 Starting Rakuten Application..."
 
 # Check if .env exists
+# Check if .env exists
 if [ ! -f .env ]; then
-    echo "❌ Error: .env file not found!"
-    echo "📝 Please copy .env.example to .env and configure it:"
-    echo "   cp .env.example .env"
-    exit 1
+    echo "⚠️  .env file not found. Creating from .env.example..."
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        echo "✅ Created .env file."
+    else
+        echo "❌ Error: .env.example not found! Cannot create .env."
+        exit 1
+    fi
 fi
 
 # Load environment variables and export them
