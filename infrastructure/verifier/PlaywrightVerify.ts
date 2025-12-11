@@ -1,17 +1,25 @@
 import { chromium } from "patchright";
 import IVerifyService from "../../application/ports/IVerifyService";
 import { Credential } from "../../core/entities/Credential";
+import UserAgent from "user-agents"
 
 const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?response_type=code&client_id=rakuten_racoupon_web&redirect_uri=https%3A%2F%2Fcoupon.rakuten.co.jp/auth/callback&scope=openid%20profile&state=%2FmyCoupon%2F%25E6%25A5%25BD%25E5%25A4%25A9%25E5%25B8%2582%25E5%25A0%25B4%3Fl-id%3Dpc_header_func_coupon&code_challenge=&code_challenge_method=&x=81&y=21&r10_jid_service_id=c23#/sign_in';
 
 export default class PlaywrightVerify implements IVerifyService {
   async verify(credential: Credential): Promise<boolean> {
+    const userAgentData = new UserAgent({
+      deviceCategory: 'desktop',
+      platform: 'Win32'
+    })
+
     const browser = await chromium.launch({
       channel: "chrome",
       headless: false,
     });
     const context = await browser.newContext({
-      locale: 'en-US'
+      locale: 'en-US',
+      userAgent: userAgentData.toString(),
+      timezoneId: 'Asia/Tokyo'
     });
     const page = await context.newPage();
 

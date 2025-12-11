@@ -11,11 +11,15 @@ export default class FileCredentialImportSource implements ICredentialSource {
     const result: RawCredentialData[] = []
 
     lines.forEach(element => {
-      const [email, password] = element.split(':')
-      result.push({
-        email: email.trim(),
-        password: password.trim(),
-      })
+      try {
+        const [email, password] = element.split(':')
+        result.push({
+          email: email.trim(),
+          password: password.trim(),
+        })
+      } catch (error) {
+        console.error('Error parsing line:', element, error)
+      }
     });
 
     return result
