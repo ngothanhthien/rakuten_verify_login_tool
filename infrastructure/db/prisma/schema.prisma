@@ -20,3 +20,25 @@ model Credential {
   processingBy String?
   claimedAt DateTime?
 }
+
+model Setting {
+  key String @id
+  name String
+  value String
+  type String
+  group String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Proxy {
+  id Int @id @default(autoincrement())
+  server String
+  username String?
+  password String?
+  status String @default("ACTIVE")
+  usageCount Int @default(0)
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

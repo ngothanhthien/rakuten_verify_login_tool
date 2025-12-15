@@ -85,7 +85,7 @@ async function copyEnvAndDatabase(distDir: string) {
   const envContent = [
     'DATABASE_URL="file:./dev.db"',
     'PORT=3000',
-    'CREDENTIAL_CHECK_CONCURRENCY=3',
+    'CREDENTIAL_CHECK_CONCURRENCY=6',
     'CREDENTIAL_CHECK_BATCH_SIZE=3',
     'CREDENTIAL_CHECK_POLLING_INTERVAL_MS=1000',
     'CREDENTIAL_CHECK_STALE_TIMEOUT_MINUTES=10',

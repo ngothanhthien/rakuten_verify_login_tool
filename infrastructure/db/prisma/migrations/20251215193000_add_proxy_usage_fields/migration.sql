@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Proxy" ADD COLUMN "usageCount" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "Proxy" ADD COLUMN "usedAt" DATETIME;
+

@@ -11,6 +11,7 @@ import { scopePerRequest } from 'awilix-express'
 import { registerRoutes } from './routes'
 import cors from 'cors'
 import path from 'path'
+import fs from 'fs'
 
 export function createHttpServer(rootContainer: AwilixContainer): Express {
   const app = express()
@@ -27,6 +28,23 @@ export function createHttpServer(rootContainer: AwilixContainer): Express {
 
   const staticDir = path.join(process.cwd(), "frontend-dist")
   app.use(express.static(staticDir))
+
+  // SPA fallback (Vue router history mode) for non-API routes
+  app.get('*', (req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/api')) {
+      return next()
+    }
+
+    const accept = req.headers.accept ?? ''
+    if (typeof accept === 'string' && accept.includes('text/html')) {
+      const indexPath = path.join(staticDir, 'index.html')
+      if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath)
+      }
+    }
+
+    next()
+  })
 
   app.use((req: Request, res: Response) => {
     res.status(404).json({

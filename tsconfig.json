@@ -22,6 +22,7 @@
     "node_modules",
     "dist",
     "frontend",
+    "infrastructure/db/prisma/prisma.config.ts",
     "**/*.d.ts"
   ]
 }

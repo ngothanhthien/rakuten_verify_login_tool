@@ -3,6 +3,7 @@ import ICredentialRepository from "../../core/repositories/ICredentialRepository
 import IVerifyService from "../ports/IVerifyService";
 import IUiNotifier from "../ports/IUiNotifier";
 import ScanCredentialsUseCase from "../use-cases/ScanCredentials";
+import SettingService from "./SettingService";
 
 export interface CheckStatus {
   isRunning: boolean;
@@ -45,6 +46,7 @@ export default class CredentialCheckRunner {
     private readonly credentialRepository: ICredentialRepository,
     private readonly verifyService: IVerifyService,
     private readonly uiNotifier: IUiNotifier,
+    private readonly settingService: SettingService,
     config?: CredentialCheckRunnerConfig,
   ) {
     this.concurrency = config?.concurrency ?? 1;
@@ -63,6 +65,10 @@ export default class CredentialCheckRunner {
       return;
     }
 
+    const isDebug = process.env.AUTOMATE_DEBUG === 'true';
+
+    const concurrency = isDebug ? 1 : parseInt((await this.settingService.getByKey('credentialCheck.concurrency'))?.value ?? '6', 6);
+
     this.isRunning = true;
     this.status = {
       isRunning: true,
@@ -71,7 +77,7 @@ export default class CredentialCheckRunner {
       startedAt: new Date(),
       finishedAt: null,
       lastError: null,
-      concurrency: this.concurrency,
+      concurrency,
       activeWorkers: 0,
     };
 

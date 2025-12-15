@@ -1,12 +1,24 @@
 // src/router/index.ts
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
+import SettingsPage from '@/pages/SettingsPage.vue'
+import ProxiesPage from '@/pages/ProxiesPage.vue'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
     component: HomePage,
+  },
+  {
+    path: '/settings',
+    name: 'settings',
+    component: SettingsPage,
+  },
+  {
+    path: '/proxies',
+    name: 'proxies',
+    component: ProxiesPage,
   },
 ]
 

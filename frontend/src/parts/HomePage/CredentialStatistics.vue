@@ -10,39 +10,39 @@ interface Props {
 defineProps<Props>()
 
 function getStatusLabel(status: string) {
-  const labels = {
-    'ACTIVE': 'Active',
-    'INACTIVE': 'Inactive',
-    'UNKNOWN': 'Unknown'
+  const labels: Record<string, string> = {
+    ACTIVE: 'Active',
+    INACTIVE: 'Inactive',
+    UNKNOWN: 'Unknown'
   }
-  return labels[status] || status
+  return labels[status] ?? status
 }
 
 function getStatusIcon(status: string) {
-  const icons = {
-    'ACTIVE': TrendingUp,
-    'INACTIVE': TrendingDown,
-    'UNKNOWN': AlertCircle
+  const icons: Record<string, any> = {
+    ACTIVE: TrendingUp,
+    INACTIVE: TrendingDown,
+    UNKNOWN: AlertCircle
   }
-  return icons[status] || Activity
+  return icons[status] ?? Activity
 }
 
 function getStatusColor(status: string) {
-  const colors = {
-    'ACTIVE': 'text-green-600',
-    'INACTIVE': 'text-red-600',
-    'UNKNOWN': 'text-yellow-600'
+  const colors: Record<string, string> = {
+    ACTIVE: 'text-green-600',
+    INACTIVE: 'text-red-600',
+    UNKNOWN: 'text-yellow-600'
   }
-  return colors[status] || 'text-gray-600'
+  return colors[status] ?? 'text-gray-600'
 }
 
 function getStatusBgColor(status: string) {
-  const colors = {
-    'ACTIVE': 'bg-green-50',
-    'INACTIVE': 'bg-red-50',
-    'UNKNOWN': 'bg-yellow-50'
+  const colors: Record<string, string> = {
+    ACTIVE: 'bg-green-50',
+    INACTIVE: 'bg-red-50',
+    UNKNOWN: 'bg-yellow-50'
   }
-  return colors[status] || 'bg-gray-50'
+  return colors[status] ?? 'bg-gray-50'
 }
 </script>
 

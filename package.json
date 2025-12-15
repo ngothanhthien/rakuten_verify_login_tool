@@ -15,9 +15,13 @@
     "build:standalone": "tsx build.ts",
     "package:windows": "npm run build:frontend && npm run prisma:generate && tsx build.ts --zip",
     "prisma:migrate:dev": "prisma migrate dev --schema=./infrastructure/db/prisma/schema.prisma",
+    "prisma:seed": "prisma db seed --schema=./infrastructure/db/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./infrastructure/db/prisma/schema.prisma",
     "postinstall": "npm run prisma:generate",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "prisma": {
+    "seed": "node infrastructure/db/prisma/seed.mjs"
   },
   "author": "",
   "license": "ISC",

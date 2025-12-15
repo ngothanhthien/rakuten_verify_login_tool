@@ -138,6 +138,10 @@ function applyFilterSelection(column: TableColumn) {
   })
   filterMenuOpen.value = null
 }
+
+function getCellValue(item: T, key: string) {
+  return (item as any)?.[key]
+}
 </script>
 
 <template>
@@ -236,13 +240,13 @@ function applyFilterSelection(column: TableColumn) {
               v-for="column in props.columns"
               :key="column.key"
             >
-              <slot
-                :name="column.key"
-                :item="item"
-              >
-                {{ item[column.key] ?? '-' }}
-              </slot>
-            </TableCell>
+	              <slot
+	                :name="column.key"
+	                :item="item"
+	              >
+	                {{ getCellValue(item, column.key) ?? '-' }}
+	              </slot>
+	            </TableCell>
             <TableCell v-if="options.actions.length > 0">
               <div class="flex items-center justify-end">
                 <DropdownMenu>

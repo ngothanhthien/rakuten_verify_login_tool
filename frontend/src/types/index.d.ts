@@ -37,3 +37,23 @@ export interface CredentialStatistics {
   total: number;
   byStatus: StatusCount[];
 }
+
+export type SettingType = 'string' | 'number' | 'boolean' | 'json';
+
+export interface Setting {
+  key: string;
+  name: string;
+  value: string;
+  type: SettingType;
+  group: string;
+}
+
+export interface Proxy {
+  id: number;
+  server: string;
+  username: string | null;
+  password: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  usageCount: number;
+  usedAt: string | null;
+}

@@ -1,6 +1,8 @@
 import axios from 'axios'
 import type { Pagination, CredentialStatistics } from '../types'
 import type { Credential } from '../types'
+import type { Setting } from '../types'
+import type { Proxy } from '../types'
 
 export async function importCredentials(file: File) {
   const formData = new FormData()
@@ -69,6 +71,60 @@ export async function exportActiveCredentials() {
 export async function getStatistics() {
   const response = await createAxios().get('/api/credentials/statistics')
   return response.data as CredentialStatistics
+}
+
+export async function listSettings(params?: { group?: string }) {
+  const response = await createAxios().get('/api/settings/list', { params })
+  return response.data as Setting[]
+}
+
+export async function getSetting(key: string) {
+  const response = await createAxios().get('/api/settings/get', { params: { key } })
+  return response.data as Setting
+}
+
+export async function saveSetting(setting: Setting) {
+  const response = await createAxios().post('/api/settings/save', setting)
+  return response.data as Setting
+}
+
+export async function listProxies() {
+  const response = await createAxios().get('/api/proxies/list')
+  return response.data as Proxy[]
+}
+
+export async function createProxy(payload: { server: string; username?: string | null; password?: string | null; status?: Proxy['status'] }) {
+  const response = await createAxios().post('/api/proxies/create', payload)
+  return response.data as Proxy
+}
+
+export async function updateProxy(
+  id: number,
+  payload: { server?: string; username?: string | null; password?: string | null; status?: Proxy['status'] },
+) {
+  const response = await createAxios().post('/api/proxies/update', { id, ...payload })
+  return response.data as Proxy
+}
+
+export async function deleteProxy(id: number) {
+  const response = await createAxios().post('/api/proxies/delete', { id })
+  return response.data as { message: string }
+}
+
+export async function testProxy(id: number) {
+  const response = await createAxios().post('/api/proxies/test', { id })
+  return response.data as {
+    ok: boolean
+    statusCode?: number
+    ip?: string
+    error?: string
+    elapsedMs: number
+  }
+}
+
+export async function rotateProxy() {
+  const response = await createAxios().post('/api/proxies/rotate')
+  return response.data as Proxy
 }
 
 function createAxios(headers?: Record<string, string>) {

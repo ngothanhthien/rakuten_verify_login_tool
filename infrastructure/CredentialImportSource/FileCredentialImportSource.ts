@@ -1,6 +1,5 @@
 import ICredentialSource from "../../application/ports/ICredentialSource";
 import RawCredentialData from "../../core/value-objects/RawCredentialData";
-import type { Express } from "express";
 
 export default class FileCredentialImportSource implements ICredentialSource {
   async readAll(file: Express.Multer.File): Promise<RawCredentialData[]> {
