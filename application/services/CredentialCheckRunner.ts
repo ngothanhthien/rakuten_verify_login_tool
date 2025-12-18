@@ -37,7 +37,7 @@ export default class CredentialCheckRunner {
     activeWorkers: 0,
   };
 
-  private readonly concurrency: number;
+  private concurrency: number;
   private readonly batchSize: number;
   private readonly pollingIntervalMs: number;
   private readonly staleClaimTimeoutMinutes: number;
@@ -49,7 +49,7 @@ export default class CredentialCheckRunner {
     private readonly settingService: SettingService,
     config?: CredentialCheckRunnerConfig,
   ) {
-    this.concurrency = config?.concurrency ?? 1;
+    this.concurrency = config?.concurrency ?? 10;
     this.batchSize = config?.batchSize ?? 3;
     this.pollingIntervalMs = config?.pollingIntervalMs ?? 1000;
     this.staleClaimTimeoutMinutes = config?.staleClaimTimeoutMinutes ?? 10;
@@ -67,7 +67,7 @@ export default class CredentialCheckRunner {
 
     const isDebug = process.env.AUTOMATE_DEBUG === 'true';
 
-    const concurrency = isDebug ? 1 : parseInt((await this.settingService.getByKey('credentialCheck.concurrency'))?.value ?? '6', 6);
+    this.concurrency = isDebug ? 1 : parseInt((await this.settingService.getByKey('credentialCheck.concurrency'))?.value ?? '6', 6);
 
     this.isRunning = true;
     this.status = {
@@ -77,7 +77,7 @@ export default class CredentialCheckRunner {
       startedAt: new Date(),
       finishedAt: null,
       lastError: null,
-      concurrency,
+      concurrency: this.concurrency,
       activeWorkers: 0,
     };
 

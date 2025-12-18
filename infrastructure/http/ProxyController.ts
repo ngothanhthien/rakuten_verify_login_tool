@@ -51,127 +51,169 @@ async function testHttpProxyConnect(opts: {
 
   const { host: proxyHost, port: proxyPort } = parseProxyEndpoint(opts.proxyServer);
 
-  const proxyAuth =
-    opts.proxyUsername
-      ? Buffer.from(`${opts.proxyUsername}:${opts.proxyPassword ?? ""}`).toString("base64")
-      : null;
+  const proxyAuth = opts.proxyUsername
+    ? Buffer.from(`${opts.proxyUsername}:${opts.proxyPassword ?? ""}`).toString("base64")
+    : null;
 
   return await new Promise<{ ok: boolean; statusCode?: number; ip?: string; error?: string; elapsedMs: number }>((resolve) => {
-    const socket = net.connect({ host: proxyHost, port: proxyPort });
+    let socket: net.Socket | null = null;
+    let secureSocket: tls.TLSSocket | null = null;
     let finished = false;
+    let timer: NodeJS.Timeout | null = null;
 
+    // 1. Hàm dọn dẹp và trả về kết quả (đảm bảo chỉ chạy 1 lần)
     const finish = (result: { ok: boolean; statusCode?: number; ip?: string; error?: string }) => {
       if (finished) return;
       finished = true;
-      socket.destroy();
+
+      // Xóa hard timeout timer
+      if (timer) clearTimeout(timer);
+
+      // Hủy kết nối ngay lập tức để tránh treo
+      if (socket && !socket.destroyed) socket.destroy();
+      if (secureSocket && !secureSocket.destroyed) secureSocket.destroy();
+
       resolve({ ...result, elapsedMs: Date.now() - startedAt });
     };
 
-    socket.setTimeout(timeoutMs, () => finish({ ok: false, error: "Timeout connecting to proxy" }));
-    socket.on("error", (err) => finish({ ok: false, error: err?.message ?? "Proxy connection error" }));
+    // 2. Thiết lập HARD TIMEOUT (Timeout tổng)
+    // Đây là cái giúp bạn tránh bị treo vô tận nếu proxy đơ
+    timer = setTimeout(() => {
+      finish({ ok: false, error: "Connection timed out (Hard limit)" });
+    }, timeoutMs);
 
-    socket.on("connect", () => {
-      const lines: string[] = [
-        `CONNECT ${targetHost}:${targetPort} HTTP/1.1`,
-        `Host: ${targetHost}:${targetPort}`,
-        `Proxy-Connection: Keep-Alive`,
-        `Connection: Keep-Alive`,
-      ];
+    try {
+      // 3. Bắt đầu kết nối
+      socket = net.connect({ host: proxyHost, port: proxyPort });
 
-      if (proxyAuth) {
-        lines.push(`Proxy-Authorization: Basic ${proxyAuth}`);
-      }
+      // Vẫn giữ timeout của socket như một lớp bảo vệ phụ (cho idle timeout)
+      socket.setTimeout(timeoutMs);
 
-      const req = lines.join("\r\n") + "\r\n\r\n";
-      socket.write(req);
-    });
+      socket.on("timeout", () => finish({ ok: false, error: "Socket timeout (inactivity)" }));
+      socket.on("error", (err) => finish({ ok: false, error: err?.message ?? "Proxy connection error" }));
 
-    let connectBuffer = Buffer.alloc(0);
-    socket.on("data", (chunk) => {
-      connectBuffer = Buffer.concat([connectBuffer, chunk]);
-      const headerEnd = connectBuffer.indexOf("\r\n\r\n");
-      if (headerEnd === -1) return;
+      socket.on("connect", () => {
+        const lines: string[] = [
+          `CONNECT ${targetHost}:${targetPort} HTTP/1.1`,
+          `Host: ${targetHost}:${targetPort}`,
+          `Proxy-Connection: Keep-Alive`,
+          `Connection: Keep-Alive`,
+        ];
 
-      const headerText = connectBuffer.slice(0, headerEnd).toString("utf8");
-      const firstLine = headerText.split("\r\n")[0] ?? "";
-      const m = firstLine.match(/HTTP\/\d\.\d\s+(\d+)/i);
-      const statusCode = m ? Number(m[1]) : undefined;
-
-      if (statusCode !== 200) {
-        return finish({ ok: false, statusCode, error: `Proxy CONNECT failed: ${firstLine || "unknown response"}` });
-      }
-
-      socket.removeAllListeners("data");
-
-      const secureSocket = tls.connect({
-        socket,
-        servername: targetHost,
-      });
-
-      secureSocket.setTimeout(timeoutMs, () => finish({ ok: false, error: "Timeout during TLS handshake/request" }));
-      secureSocket.on("error", (err) => finish({ ok: false, error: err?.message ?? "TLS error" }));
-
-      secureSocket.on("secureConnect", () => {
-        const httpReq =
-          `GET ${targetPath} HTTP/1.1\r\n` +
-          `Host: ${targetHost}\r\n` +
-          `Accept: application/json\r\n` +
-          `Connection: close\r\n` +
-          `\r\n`;
-
-        secureSocket.write(httpReq);
-      });
-
-      const chunks: Buffer[] = [];
-      secureSocket.on("data", (d) => chunks.push(Buffer.from(d)));
-      secureSocket.on("end", () => {
-        const raw = Buffer.concat(chunks);
-        const split = raw.indexOf("\r\n\r\n");
-        if (split === -1) {
-          return finish({ ok: false, error: "Invalid response from target" });
+        if (proxyAuth) {
+          lines.push(`Proxy-Authorization: Basic ${proxyAuth}`);
         }
 
-        const head = raw.slice(0, split).toString("utf8");
-        const bodyRaw = raw.slice(split + 4);
-        const statusLine = head.split("\r\n")[0] ?? "";
-        const sm = statusLine.match(/HTTP\/\d\.\d\s+(\d+)/i);
-        const httpStatus = sm ? Number(sm[1]) : undefined;
+        const req = lines.join("\r\n") + "\r\n\r\n";
+        socket?.write(req);
+      });
 
-        const headers: Record<string, string> = {};
-        for (const line of head.split("\r\n").slice(1)) {
-          const idx = line.indexOf(":");
-          if (idx === -1) continue;
-          const k = line.slice(0, idx).trim().toLowerCase();
-          const v = line.slice(idx + 1).trim();
-          headers[k] = v;
+      let connectBuffer = Buffer.alloc(0);
+
+      socket.on("data", (chunk) => {
+        // Nếu đã finish (ví dụ do timeout) thì không xử lý data nữa
+        if (finished) return;
+
+        connectBuffer = Buffer.concat([connectBuffer, chunk]);
+        const headerEnd = connectBuffer.indexOf("\r\n\r\n");
+        if (headerEnd === -1) return;
+
+        const headerText = connectBuffer.slice(0, headerEnd).toString("utf8");
+        const firstLine = headerText.split("\r\n")[0] ?? "";
+        const m = firstLine.match(/HTTP\/\d\.\d\s+(\d+)/i);
+        const statusCode = m ? Number(m[1]) : undefined;
+
+        if (statusCode !== 200) {
+          return finish({ ok: false, statusCode, error: `Proxy CONNECT failed: ${firstLine || "unknown response"}` });
         }
 
-        let body: Buffer = bodyRaw;
-        const transferEncoding = headers["transfer-encoding"]?.toLowerCase() ?? "";
-        if (transferEncoding.includes("chunked")) {
+        // CONNECT thành công, gỡ listener data cũ để chuyển sang TLS
+        socket?.removeAllListeners("data");
+        socket?.removeAllListeners("timeout"); // Gỡ timeout cũ để set timeout mới cho TLS
+
+        // Tạo kết nối TLS
+        secureSocket = tls.connect({
+          socket: socket!, // Dấu ! vì chắc chắn socket tồn tại ở đây
+          servername: targetHost,
+        });
+
+        secureSocket.setTimeout(timeoutMs);
+        secureSocket.on("timeout", () => finish({ ok: false, error: "TLS socket timeout" }));
+        secureSocket.on("error", (err) => finish({ ok: false, error: err?.message ?? "TLS error" }));
+
+        secureSocket.on("secureConnect", () => {
+          const httpReq =
+            `GET ${targetPath} HTTP/1.1\r\n` +
+            `Host: ${targetHost}\r\n` +
+            `Accept: application/json\r\n` +
+            `Connection: close\r\n` +
+            `\r\n`;
+
+          secureSocket?.write(httpReq);
+        });
+
+        const chunks: Buffer[] = [];
+        secureSocket.on("data", (d) => chunks.push(Buffer.from(d)));
+
+        secureSocket.on("end", () => {
+          if (finished) return;
+
+          const raw = Buffer.concat(chunks);
+          if (raw.length === 0) {
+             return finish({ ok: false, error: "Empty response from target" });
+          }
+
+          const split = raw.indexOf("\r\n\r\n");
+          if (split === -1) {
+            // Có thể response ngắn hoặc lỗi, thử parse body nếu không tìm thấy header split chuẩn
+            // Nhưng an toàn nhất là báo lỗi
+            return finish({ ok: false, error: "Invalid response structure" });
+          }
+
+          const head = raw.slice(0, split).toString("utf8");
+          const bodyRaw = raw.slice(split + 4);
+          const statusLine = head.split("\r\n")[0] ?? "";
+          const sm = statusLine.match(/HTTP\/\d\.\d\s+(\d+)/i);
+          const httpStatus = sm ? Number(sm[1]) : undefined;
+
+          const headers: Record<string, string> = {};
+          for (const line of head.split("\r\n").slice(1)) {
+            const idx = line.indexOf(":");
+            if (idx === -1) continue;
+            const k = line.slice(0, idx).trim().toLowerCase();
+            const v = line.slice(idx + 1).trim();
+            headers[k] = v;
+          }
+
+          let body: Buffer = bodyRaw;
+          const transferEncoding = headers["transfer-encoding"]?.toLowerCase() ?? "";
+          if (transferEncoding.includes("chunked")) {
+            try {
+              body = decodeChunkedBody(bodyRaw);
+            } catch (e: any) {
+              return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to decode chunked body" });
+            }
+          }
+
+          if (httpStatus !== 200) {
+            return finish({ ok: false, statusCode: httpStatus, error: `Target responded ${httpStatus}` });
+          }
+
           try {
-            body = decodeChunkedBody(bodyRaw);
+            const json = JSON.parse(body.toString("utf8"));
+            const ip = typeof json?.ip === "string" ? json.ip : undefined;
+            if (!ip) {
+              return finish({ ok: false, statusCode: httpStatus, error: "ipify response missing ip" });
+            }
+            return finish({ ok: true, statusCode: httpStatus, ip });
           } catch (e: any) {
-            return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to decode chunked body" });
+            return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to parse JSON" });
           }
-        }
-
-        if (httpStatus !== 200) {
-          return finish({ ok: false, statusCode: httpStatus, error: `Target responded ${httpStatus}` });
-        }
-
-        try {
-          const json = JSON.parse(body.toString("utf8"));
-          const ip = typeof json?.ip === "string" ? json.ip : undefined;
-          if (!ip) {
-            return finish({ ok: false, statusCode: httpStatus, error: "ipify response missing ip" });
-          }
-          return finish({ ok: true, statusCode: httpStatus, ip });
-        } catch (e: any) {
-          return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to parse JSON" });
-        }
+        });
       });
-    });
+    } catch (e: any) {
+      finish({ ok: false, error: e?.message ?? "Exception during connection setup" });
+    }
   });
 }
 
@@ -350,7 +392,7 @@ export default class ProxyController {
         proxyServer,
         proxyUsername,
         proxyPassword,
-        timeoutMs: 12_000,
+        timeoutMs: 5_000,
       });
 
       res.json({

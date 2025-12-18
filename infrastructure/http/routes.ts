@@ -34,7 +34,6 @@ export function registerRoutes(app: Express) {
   router.post('/proxies/update', proxiesApi('update'))
   router.post('/proxies/delete', proxiesApi('delete'))
   router.post('/proxies/test', proxiesApi('test'))
-  router.post('/proxies/rotate', proxiesApi('rotate'))
 
   app.use('/api', router)
 }

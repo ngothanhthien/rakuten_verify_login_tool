@@ -76,7 +76,7 @@ async function copyFrontend(distDir: string) {
 
 async function copyEnvAndDatabase(distDir: string) {
   console.log('🗂  Preparing env and database files...')
-  const dbSource = path.join(process.cwd(), 'infrastructure/db/prisma/dev.db')
+  const dbSource = path.join(process.cwd(), 'infrastructure/db/prisma/infrastructure/db/prisma/dev.db')
   if (!(await fs.pathExists(dbSource))) {
     throw new Error('SQLite file not found at infrastructure/db/prisma/dev.db')
   }

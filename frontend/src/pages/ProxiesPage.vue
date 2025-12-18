@@ -199,7 +199,7 @@ onMounted(fetchProxies)
             v-model="form.password"
             class="w-full rounded-md border bg-background px-3 py-2 text-sm"
             placeholder="password"
-            type="password"
+            type="text"
           />
         </div>
 
