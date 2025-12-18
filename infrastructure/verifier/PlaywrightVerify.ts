@@ -41,6 +41,7 @@ export default class PlaywrightVerify implements IVerifyService {
     const context = await browser.newContext({
       screen: { width: 1920, height: 1080 },
       userAgent: userAgentData.toString(),
+      locale: 'en-US',
       // timezoneId: 'Asia/Tokyo'
     })
     const page = await context.newPage();
