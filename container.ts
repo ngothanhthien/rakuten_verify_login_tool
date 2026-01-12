@@ -19,7 +19,7 @@ export function buildContainer() {
   const isDebug = process.env.AUTOMATE_DEBUG === 'true'
 
   const runnerConfig: CredentialCheckRunnerConfig = {
-    concurrency: isDebug ? 1 : parseInt(process.env.CREDENTIAL_CHECK_CONCURRENCY || '6', 10),
+    concurrency: isDebug ? 1 : 5,
     batchSize: parseInt(process.env.CREDENTIAL_CHECK_BATCH_SIZE || '3', 10),
     pollingIntervalMs: parseInt(process.env.CREDENTIAL_CHECK_POLLING_INTERVAL_MS || '1000', 10),
     staleClaimTimeoutMinutes: parseInt(process.env.CREDENTIAL_CHECK_STALE_TIMEOUT_MINUTES || '10', 10),

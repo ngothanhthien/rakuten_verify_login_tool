@@ -67,7 +67,7 @@ export default class CredentialCheckRunner {
 
     const isDebug = process.env.AUTOMATE_DEBUG === 'true';
 
-    this.concurrency = isDebug ? 1 : parseInt((await this.settingService.getByKey('credentialCheck.concurrency'))?.value ?? '6', 6);
+    this.concurrency = isDebug ? 1 : 5;
 
     this.isRunning = true;
     this.status = {
