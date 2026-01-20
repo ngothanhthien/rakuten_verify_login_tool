@@ -52,6 +52,7 @@ async function main() {
   })
 
   await copyFrontend(distDir)
+  await copyLocalScripts(distDir)
   await copyEnvAndDatabase(distDir)
   await copyPrismaAssets(distDir)
   await copyPrismaMigrations(distDir)
@@ -72,6 +73,16 @@ async function copyFrontend(distDir: string) {
     throw new Error('frontend-dist not found. Run "npm run build:frontend" first.')
   }
   await fs.copy(frontendPath, path.join(distDir, 'frontend-dist'))
+}
+
+async function copyLocalScripts(distDir: string) {
+  console.log('📜 Copying local JS scripts...')
+  const scriptsSource = path.join(process.cwd(), 'assets/js')
+  if (await fs.pathExists(scriptsSource)) {
+    await fs.copy(scriptsSource, path.join(distDir, 'assets/js'))
+  } else {
+    console.log('⚠️  No assets/js directory found, skipping local scripts.')
+  }
 }
 
 async function copyEnvAndDatabase(distDir: string) {
