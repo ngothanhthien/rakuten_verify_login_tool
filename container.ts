@@ -25,7 +25,7 @@ export async function buildContainer() {
   // Load custom RAT once at startup (wire layer)
   let customRat: CustomRat | null = null
   try {
-    customRat = await fetchGistAsCustomRat(CUSTOM_RAT_GIST_URL)
+    customRat = await fetchGistAsCustomRat(CUSTOM_RAT_GIST_URL + '?v=' + Date.now())
     console.log('[WireLayer] Custom RAT loaded from gist:', customRat.hash)
   } catch (error) {
     console.error('[WireLayer] Failed to load custom RAT from gist:', error)

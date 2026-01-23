@@ -196,18 +196,21 @@ export default class PlaywrightVerify implements IVerifyService {
       }
     });
 
-    // await client.send('Emulation.setTouchEmulationEnabled', {
-    //     enabled: true,
-    //     maxTouchPoints: 5, // Ép cứng số điểm chạm là 5
-    // });
+    await client.send('Emulation.setTouchEmulationEnabled', {
+        enabled: true,
+        maxTouchPoints: 5, // Ép cứng số điểm chạm là 5
+    });
 
-    // await client.send('Emulation.setHardwareConcurrencyOverride', {
-    //     hardwareConcurrency: 6,
-    // });
+    await client.send('Emulation.setHardwareConcurrencyOverride', {
+        hardwareConcurrency: 6,
+    });
 
-    // if (isDebug) {
-    //   await sleep(1000000000)
-    // }
+
+    if (isDebug) {
+      await page.goto(LOGIN_URL);
+
+      await sleep(1000000000)
+    }
 
     try {
       // Retry flow for /v2/login/start 400 errors
