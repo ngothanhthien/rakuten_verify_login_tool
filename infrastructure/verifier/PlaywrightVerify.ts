@@ -154,22 +154,12 @@ export default class PlaywrightVerify implements IVerifyService {
 
     const page = await context.newPage();
 
-    // Inject navigator plugins spoofing
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [],
-      });
-      Object.defineProperty(navigator, 'mimeTypes', {
-        get: () => [],
-      });
-    });
-
     // Inject RatOverride if custom RAT is set
-    if (this.customRat) {
-      const ratOverrideScript = createRatOverrideScript(this.customRat);
-      await page.addInitScript(ratOverrideScript);
-      console.log('[RatOverride] Script injected with custom RAT:', this.customRat.hash);
-    }
+    // if (this.customRat) {
+    //   const ratOverrideScript = createRatOverrideScript(this.customRat);
+    //   await page.addInitScript(ratOverrideScript);
+    //   console.log('[RatOverride] Script injected with custom RAT:', this.customRat.hash);
+    // }
 
     // Enable local JS file routing for specific files
     await page.route('**/*.js', (route) => this.handleLocalJs(route));

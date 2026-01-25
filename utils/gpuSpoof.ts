@@ -146,6 +146,20 @@ const IPHONE_GPU_PROFILES: Record<Exclude<IPhoneDevice, 'custom'>, GPUSpec> = {
 };
 
 /**
+ * Generate a random string of specified length (first char uppercase, rest lowercase)
+ * @param length - Length of the random string (default: 6)
+ */
+export function randomString(length: number = 6): string {
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  let result = upper.charAt(Math.floor(Math.random() * upper.length));
+  for (let i = 1; i < length; i++) {
+    result += lower.charAt(Math.floor(Math.random() * lower.length));
+  }
+  return result;
+}
+
+/**
  * Generate GPU spoofing script for Playwright
  * @param device - iPhone device type or 'custom' with custom spec
  * @param customSpec - Custom GPU spec (only used when device='custom')
@@ -154,10 +168,18 @@ export function createGPUSpoofScript(
   device: IPhoneDevice = 'iphone-13',
   customSpec?: CustomGPUSpec
 ): string {
-  const spec = device === 'custom' ? customSpec! : IPHONE_GPU_PROFILES[device];
+  let spec = device === 'custom' ? customSpec! : IPHONE_GPU_PROFILES[device];
 
   if (!spec) {
     throw new Error(`Unknown device: ${device}`);
+  }
+
+  // Replace "Bionic" with random string in renderer
+  if (spec.renderer.includes('Bionic')) {
+    spec = {
+      ...spec,
+      renderer: spec.renderer.replace('Bionic', randomString())
+    };
   }
 
   return `
@@ -254,6 +276,7 @@ export function getDeviceGPUSpec(device: IPhoneDevice): GPUSpec | null {
 }
 
 export default {
+  randomString,
   createGPUSpoofScript,
   listAvailableDevices,
   getDeviceGPUSpec
