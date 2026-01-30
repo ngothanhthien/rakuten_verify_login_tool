@@ -12,8 +12,8 @@ import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
 const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?r10_required_claims=r10_name&r10_audience=rae&r10_guest_login=true&r10_jid_service_id=rm001&scope=openid+memberinfo_read_safebulk+memberinfo_read_point+memberinfo_get_card_token+1Hour%40Access+90days%40Refresh&response_type=code&redirect_uri=https%3A%2F%2Fportal.mobile.rakuten.co.jp%2Fauth%2Fcallback&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin&client_id=rmn_app_web#/sign_in';
 
 const TEST_ACCOUNT = {
-  email: 's13301700128@gmail.com',
-  password: 'hika3ta5900'
+  email: 'Hoptacquangcao2004@gmail.com',
+  password: 'Tuan27022004aa'
 }
 
 export default class PlaywrightVerify implements IVerifyService {
@@ -196,11 +196,11 @@ export default class PlaywrightVerify implements IVerifyService {
     });
 
 
-    if (isDebug) {
-      await page.goto(LOGIN_URL);
+    // if (isDebug) {
+    //   await page.goto(LOGIN_URL);
 
-      await sleep(1000000000)
-    }
+    //   await sleep(1000000000)
+    // }
 
     try {
       // Retry flow for /v2/login/start 400 errors
@@ -240,9 +240,9 @@ export default class PlaywrightVerify implements IVerifyService {
         return false;
       }
 
-      if (isDebug) {
-        await sleep(1000000000)
-      }
+      // if (isDebug) {
+      //   await sleep(1000000000)
+      // }
 
       await page.waitForURL('**/sign_in/password');
       await page.locator('#password_current').fill(isDebug ? TEST_ACCOUNT.password : credential.password);
@@ -260,21 +260,30 @@ export default class PlaywrightVerify implements IVerifyService {
 
       await nextButton.click()
 
-      // if (isDebug) {
-      //   await sleep(1000000000)
-      // }
-
       const loginResponse = await loginResponsePromise
       if (loginResponse.status() !== 200) {
+        if (isDebug) {
+          console.log('Login failed')
+          await sleep(1000000000)
+        }
         return false
       }
 
       const isDataUsageBoxVisible = await this.checkDataUsageBox(page);
       if (!isDataUsageBoxVisible) {
+        if (isDebug) {
+          console.log('Data usage box not found')
+          await sleep(1000000000)
+        }
         return false;
       }
 
       const isVerified = await this.checkDataUsageBox(page)
+
+      if (isDebug) {
+        console.log('Verified')
+        await sleep(1000000000)
+      }
 
       return isVerified
     } catch (e) {
@@ -287,14 +296,18 @@ export default class PlaywrightVerify implements IVerifyService {
   }
 
   private async checkDataUsageBox(page: Page, retryCount: number = 0): Promise<boolean> {
-    const dataUsageBox = page.locator('rktn-home-data-usage[itemid="d_home_2"]');
-
     try {
       console.log(`Checking Data Usage Box (Attempt ${retryCount + 1})...`);
+
+      // Handle "You are already signed in" page if present
+      await this.handleAlreadySignedInPage(page);
+
+      // Now check for the data usage box
+      const dataUsageBox = page.locator('rktn-home-data-usage[itemid="d_home_2"]');
       await dataUsageBox.waitFor({ state: 'visible', timeout: 15000 });
       return true;
     } catch (e) {
-      if (retryCount < 3) {
+      if (retryCount < 4) {
         console.log("Element not found, reloading page...");
 
         if (page.url().includes('dashboard')) {
@@ -303,6 +316,31 @@ export default class PlaywrightVerify implements IVerifyService {
             return this.checkDataUsageBox(page, retryCount + 1);
         }
       }
+      return false;
+    }
+  }
+
+  /**
+   * Check if the "You are already signed in" page is displayed
+   * and handle it by clicking the Continue button
+   */
+  private async handleAlreadySignedInPage(page: Page): Promise<boolean> {
+    try {
+      const alreadySignedInText = page.getByText('You are already signed in');
+      const isVisible = await alreadySignedInText.isVisible().catch(() => false);
+
+      if (isVisible) {
+        console.log('Detected "You are already signed in" page, clicking Continue button...');
+        const continueButton = page.locator('#prim_81', { hasText: 'Continue' });
+        await continueButton.waitFor({ state: 'visible', timeout: 5000 });
+        await continueButton.click();
+        await page.waitForLoadState('networkidle');
+        console.log('Continue button clicked, proceeding to dashboard...');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.log('No "You are already signed in" page detected or error handling it:', e);
       return false;
     }
   }
