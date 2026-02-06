@@ -147,14 +147,14 @@ export default class PrismaProxyRepository implements IProxyRepository {
         return new Map();
       }
 
-      // Calculate optimal worker count based on total proxies and max concurrency
-      // Each worker requires 2 proxies (for round-robin rotation)
-      // This ensures ALL available proxies are distributed across workers
+      // Calculate optimal worker count: MIN(totalProxies / 2, 40)
+      // Then distribute proxies evenly: proxiesPerWorker = CEIL(totalProxies / workerCount)
       const maxConcurrency = 40;
       const workerCount = Math.min(Math.floor(totalProxies / 2), maxConcurrency);
+      const proxiesPerWorker = Math.ceil(totalProxies / workerCount);
 
-      // Fetch exactly the number of proxies we need (2 per worker)
-      const requiredProxies = workerCount * 2;
+      // Fetch the proxies we need
+      const requiredProxies = workerCount * proxiesPerWorker;
       const proxies = await tx.$queryRaw<any[]>`
         SELECT * FROM "Proxy"
         WHERE status = 'ACTIVE'
@@ -162,13 +162,15 @@ export default class PrismaProxyRepository implements IProxyRepository {
         LIMIT ${requiredProxies}
       `;
 
-      // Distribute proxies evenly across workers (2 per worker)
+      // Distribute proxies evenly across workers
       const assignments = new Map();
       for (let i = 0; i < workerCount; i++) {
-        const proxy1 = proxies[i * 2] ? this.toEntity(proxies[i * 2]) : null;
-        const proxy2 = proxies[i * 2 + 1] ? this.toEntity(proxies[i * 2 + 1]) : null;
+        const start = i * proxiesPerWorker;
+        const end = start + proxiesPerWorker;
+        const workerProxies = proxies.slice(start, end)
+          .map(p => this.toEntity(p));
 
-        assignments.set(`worker-${i + 1}`, createWorkerProxyAssignment(proxy1, proxy2));
+        assignments.set(`worker-${i + 1}`, createWorkerProxyAssignment(...workerProxies));
       }
 
       return assignments;

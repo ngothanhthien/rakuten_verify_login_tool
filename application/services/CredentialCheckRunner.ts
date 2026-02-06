@@ -83,39 +83,37 @@ export default class CredentialCheckRunner {
 
     // Validate minimum proxy count
     const activeProxyCount = await this.proxyRepository.getActiveCount();
-    const requiredProxies = Math.ceil(this.concurrency * 2);
 
-    if (activeProxyCount < this.concurrency) {
+    if (activeProxyCount < 2) {
       throw new Error(
         `Insufficient proxies: ${activeProxyCount} available, ` +
-        `${this.concurrency} required (minimum 1 per worker)`
-      );
-    }
-
-    // Add warning if not enough for full round-robin
-    if (activeProxyCount < requiredProxies) {
-      console.warn(
-        `Warning: Only ${activeProxyCount} proxies available for ${requiredProxies} required. ` +
-        `Some workers may not have backup proxies.`
+        `at least 2 required`
       );
     }
 
     // Assign proxies to workers
     this.workerProxyAssignments = await this.proxyRepository.assignToWorkers();
 
-    // Use temporary variable to avoid circular reference
-    const totalPrimaryProxies = Array.from(this.workerProxyAssignments.values())
-      .filter(a => a.proxy1).length;
+    if (this.workerProxyAssignments.size === 0) {
+      throw new Error('Failed to assign proxies to workers');
+    }
+
+    // Calculate total proxies assigned across all workers
+    const totalAssignedProxies = Array.from(this.workerProxyAssignments.values())
+      .reduce((sum, a) => sum + a.proxies.length, 0);
+
+    const proxyListStr = Array.from(this.workerProxyAssignments.values())
+      .map(a => `[${a.proxies.map(p => p.server).join(', ')}]`)
+      .join(', ');
 
     console.log(
-      `Assigned ${this.workerProxyAssignments.size} workers with ` +
-      `${totalPrimaryProxies} primary proxies`
+      `Assigned ${this.workerProxyAssignments.size} workers with ${totalAssignedProxies} proxies: ${proxyListStr}`
     );
 
     this.isRunning = true;
     this.status = {
       isRunning: true,
-      total: totalPrimaryProxies,
+      total: totalAssignedProxies,
       processed: 0,
       startedAt: new Date(),
       finishedAt: null,
@@ -193,11 +191,12 @@ export default class CredentialCheckRunner {
   private async runWorker(workerId: string): Promise<void> {
     const proxyAssignment = this.workerProxyAssignments.get(workerId);
 
-    if (!proxyAssignment || !proxyAssignment.proxy1) {
-      throw new Error(`Worker ${workerId} has no primary proxy assigned`);
+    if (!proxyAssignment || proxyAssignment.proxies.length === 0) {
+      throw new Error(`Worker ${workerId} has no proxies assigned`);
     }
 
-    console.log(`Starting ${workerId} with proxies: ${proxyAssignment.proxy1.server}, ${proxyAssignment.proxy2?.server ?? 'none'}`);
+    const proxyListStr = proxyAssignment.proxies.map(p => p.server).join(', ');
+    console.log(`Starting ${workerId} with proxies: ${proxyListStr}`);
     this.activeWorkers++;
 
     try {

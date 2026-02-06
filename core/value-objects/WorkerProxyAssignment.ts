@@ -1,33 +1,42 @@
 import { Proxy } from "../entities/Proxy";
 
 export interface WorkerProxyAssignment {
-  proxy1: Proxy | null;
-  proxy2: Proxy | null;
-  currentIndex: 0 | 1;
+  proxies: Proxy[];
+  currentIndex: number;
 }
 
-export function createWorkerProxyAssignment(
-  proxy1: Proxy | null,
-  proxy2: Proxy | null
-): WorkerProxyAssignment {
+export function createWorkerProxyAssignment(...proxies: Proxy[]): WorkerProxyAssignment {
   return {
-    proxy1,
-    proxy2,
+    proxies: [...proxies],
     currentIndex: 0
   };
 }
 
 export function getNextProxy(assignment: WorkerProxyAssignment): Proxy | null {
-  return assignment.currentIndex === 0 ? assignment.proxy1 : assignment.proxy2;
+  // Return null if no proxies or all are dead
+  if (assignment.proxies.length === 0) {
+    return null;
+  }
+
+  // Start from current index and cycle through to find an alive proxy
+  for (let i = 0; i < assignment.proxies.length; i++) {
+    const index = (assignment.currentIndex + i) % assignment.proxies.length;
+    const proxy = assignment.proxies[index];
+    if (proxy.status === 'ACTIVE') {
+      return proxy;
+    }
+  }
+
+  // No alive proxies found
+  return null;
 }
 
 export function rotateProxyIndex(assignment: WorkerProxyAssignment): void {
-  if (assignment.proxy1 && assignment.proxy2) {
-    assignment.currentIndex = assignment.currentIndex === 0 ? 1 : 0;
+  if (assignment.proxies.length > 0) {
+    assignment.currentIndex = (assignment.currentIndex + 1) % assignment.proxies.length;
   }
 }
 
 export function hasAliveProxy(assignment: WorkerProxyAssignment): boolean {
-  return (assignment.proxy1?.status === 'ACTIVE') ||
-         (assignment.proxy2?.status === 'ACTIVE');
+  return assignment.proxies.some(p => p.status === 'ACTIVE');
 }
