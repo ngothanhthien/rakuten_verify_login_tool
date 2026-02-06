@@ -1,19 +1,20 @@
 import ICredentialRepository from "../../core/repositories/ICredentialRepository";
 import { CredentialStatus } from "../../core/value-objects/CredentialStatus";
-import { WorkerContext } from "../../core/value-objects/WorkerContext";
+import { WorkerProxyAssignment } from "../../core/value-objects/WorkerProxyAssignment";
+import { createWorkerContext } from "../../core/value-objects/WorkerContext";
 import IUiNotifier from "../ports/IUiNotifier";
 import IVerifyService from "../ports/IVerifyService";
 
 export interface ScanCredentialsConfig {
   batchSize?: number;
   workerId?: string;
-  workerContext?: WorkerContext;
+  proxyAssignment?: WorkerProxyAssignment;
 }
 
 export default class ScanCredentialsUseCase {
   private readonly batchSize: number;
   private readonly workerId: string;
-  private readonly workerContext: WorkerContext | null;
+  private readonly proxyAssignment: WorkerProxyAssignment | null;
 
   constructor(
     private readonly repository: ICredentialRepository,
@@ -23,7 +24,7 @@ export default class ScanCredentialsUseCase {
   ) {
     this.batchSize = config?.batchSize ?? 3;
     this.workerId = config?.workerId ?? 'default-worker';
-    this.workerContext = config?.workerContext ?? null;
+    this.proxyAssignment = config?.proxyAssignment ?? null;
   }
 
   /**
@@ -33,6 +34,17 @@ export default class ScanCredentialsUseCase {
    * @returns Number of credentials processed in this batch
    */
   async execute(): Promise<number> {
+    // Validate proxy assignment is present
+    if (!this.proxyAssignment) {
+      throw new Error(
+        `ScanCredentialsUseCase requires proxyAssignment to be provided. ` +
+        `Worker ${this.workerId} cannot proceed without proxy assignment.`
+      );
+    }
+
+    // Create WorkerContext from proxy assignment
+    const workerContext = createWorkerContext(this.workerId, this.proxyAssignment);
+
     // Atomically claim credentials for this worker
     const credentials = await this.repository.findAndClaimPending(this.batchSize, this.workerId);
 
@@ -45,7 +57,7 @@ export default class ScanCredentialsUseCase {
     // Process each claimed credential
     for (const credential of credentials) {
       try {
-        const verified = await this.verifyService.verify(credential, this.workerContext!);
+        const verified = await this.verifyService.verify(credential, workerContext);
 
         // Update status and release claim in one operation
         await this.repository.update(credential.id, {
