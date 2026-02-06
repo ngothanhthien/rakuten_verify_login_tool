@@ -5,6 +5,7 @@ export interface TestResult {
   elapsedMs: number;
   ip?: string;
   error?: string;
+  statusCode?: number;
 }
 
 export async function testProxyWithRetry(
