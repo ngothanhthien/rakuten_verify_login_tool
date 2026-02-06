@@ -123,8 +123,6 @@ onMounted(fetchProxies)
             <tr>
               <th class="p-3 font-medium">Server</th>
               <th class="p-3 font-medium">Status</th>
-              <th class="p-3 font-medium">Usage</th>
-              <th class="p-3 font-medium">Used At</th>
               <th class="p-3 font-medium">Username</th>
               <th class="p-3 font-medium">Password</th>
               <th class="p-3 font-medium w-40"></th>
@@ -141,8 +139,6 @@ onMounted(fetchProxies)
                   {{ p.status }}
                 </span>
               </td>
-              <td class="p-3 font-mono text-xs">{{ p.usageCount ?? 0 }}</td>
-              <td class="p-3 font-mono text-xs">{{ p.usedAt ?? '-' }}</td>
               <td class="p-3">{{ p.username ?? '-' }}</td>
               <td class="p-3">
                 <span v-if="p.password" class="font-mono text-xs">••••••••</span>
