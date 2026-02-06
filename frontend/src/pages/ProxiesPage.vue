@@ -1,51 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { Proxy } from '@/types'
 import * as api from '@/repositories/api'
 
-type ProxyForm = {
-  server: string
-  username: string
-  password: string
-  status: 'ACTIVE' | 'INACTIVE'
-}
-
 const proxies = ref<Proxy[]>([])
 const loading = ref(false)
-const saving = ref(false)
 const testingId = ref<number | null>(null)
 const rotating = ref(false)
 const error = ref<string | null>(null)
-
-const editingId = ref<number | null>(null)
-const form = ref<ProxyForm>({
-  server: '',
-  username: '',
-  password: '',
-  status: 'ACTIVE',
-})
-
-const isEditing = computed(() => editingId.value !== null)
-
-function resetForm() {
-  editingId.value = null
-  form.value = { server: '', username: '', password: '', status: 'ACTIVE' }
-}
-
-function startEdit(proxy: Proxy) {
-  editingId.value = proxy.id
-  form.value = {
-    server: proxy.server ?? '',
-    username: proxy.username ?? '',
-    password: proxy.password ?? '',
-    status: proxy.status ?? 'ACTIVE',
-  }
-}
-
-function normalizeOptional(value: string): string | null {
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 async function fetchProxies() {
   loading.value = true
@@ -59,38 +21,6 @@ async function fetchProxies() {
   }
 }
 
-async function submit() {
-  error.value = null
-  const server = form.value.server.trim()
-  if (!server) {
-    error.value = 'server is required'
-    return
-  }
-
-  saving.value = true
-  try {
-    const payload = {
-      server,
-      username: normalizeOptional(form.value.username),
-      password: normalizeOptional(form.value.password),
-      status: form.value.status,
-    }
-
-    if (editingId.value === null) {
-      await api.createProxy(payload)
-    } else {
-      await api.updateProxy(editingId.value, payload)
-    }
-
-    await fetchProxies()
-    resetForm()
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? e?.message ?? 'Failed to save proxy'
-  } finally {
-    saving.value = false
-  }
-}
-
 async function remove(proxy: Proxy) {
   const confirmed = confirm(`Delete proxy "${proxy.server}"?`)
   if (!confirmed) return
@@ -99,9 +29,6 @@ async function remove(proxy: Proxy) {
   try {
     await api.deleteProxy(proxy.id)
     await fetchProxies()
-    if (editingId.value === proxy.id) {
-      resetForm()
-    }
   } catch (e: any) {
     error.value = e?.response?.data?.message ?? e?.message ?? 'Failed to delete proxy'
   }
@@ -153,80 +80,19 @@ onMounted(fetchProxies)
     </div>
 
     <div class="rounded-lg border bg-card">
-      <div class="p-4 border-b flex items-center justify-between gap-3">
-        <div class="font-medium">{{ isEditing ? 'Edit proxy' : 'Add proxy' }}</div>
-        <div class="flex gap-2">
-          <button class="rounded-md border px-3 py-2 text-sm" :disabled="rotating" @click="rotate">
-            {{ rotating ? 'Rotating...' : 'Rotate' }}
-          </button>
-          <button class="rounded-md border px-3 py-2 text-sm" :disabled="loading" @click="fetchProxies">
-            Refresh
-          </button>
-          <button
-            v-if="isEditing"
-            class="rounded-md border px-3 py-2 text-sm"
-            :disabled="saving"
-            @click="resetForm"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-
-      <form class="p-4 grid grid-cols-1 md:grid-cols-5 gap-3" @submit.prevent="submit">
-        <div class="space-y-1 md:col-span-2">
-          <label class="text-sm text-muted-foreground">Server</label>
-          <input
-            v-model="form.server"
-            class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            placeholder="http://host:port"
-            required
-          />
-        </div>
-
-        <div class="space-y-1">
-          <label class="text-sm text-muted-foreground">Username (optional)</label>
-          <input
-            v-model="form.username"
-            class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            placeholder="username"
-          />
-        </div>
-
-        <div class="space-y-1">
-          <label class="text-sm text-muted-foreground">Password (optional)</label>
-          <input
-            v-model="form.password"
-            class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            placeholder="password"
-            type="text"
-          />
-        </div>
-
-        <div class="space-y-1">
-          <label class="text-sm text-muted-foreground">Status</label>
-          <select v-model="form.status" class="w-full rounded-md border bg-background px-3 py-2 text-sm">
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
-          </select>
-        </div>
-
-        <div class="md:col-span-5 flex justify-end gap-2">
-          <button
-            type="submit"
-            class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-60"
-            :disabled="saving"
-          >
-            {{ saving ? 'Saving...' : (isEditing ? 'Update' : 'Create') }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="rounded-lg border bg-card">
       <div class="p-4 border-b flex items-center justify-between">
         <div class="font-medium">Proxies</div>
-        <div class="text-sm text-muted-foreground">{{ proxies.length }} item(s)</div>
+        <div class="flex items-center gap-3">
+          <div class="text-sm text-muted-foreground">{{ proxies.length }} item(s)</div>
+          <div class="flex gap-2">
+            <button class="rounded-md border px-3 py-2 text-sm" :disabled="rotating" @click="rotate">
+              {{ rotating ? 'Rotating...' : 'Rotate' }}
+            </button>
+            <button class="rounded-md border px-3 py-2 text-sm" :disabled="loading" @click="fetchProxies">
+              Refresh
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="loading" class="p-6 text-sm text-muted-foreground">Loading proxies...</div>
@@ -274,7 +140,6 @@ onMounted(fetchProxies)
                 >
                   {{ testingId === p.id ? 'Testing...' : 'Test' }}
                 </button>
-                <button class="rounded-md border px-3 py-2 text-sm" @click="startEdit(p)">Edit</button>
                 <button class="rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive" @click="remove(p)">
                   Delete
                 </button>
