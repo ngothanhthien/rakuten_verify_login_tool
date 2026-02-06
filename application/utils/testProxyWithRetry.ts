@@ -1,3 +1,5 @@
+import { testHttpProxyConnect } from "../../infrastructure/http/testHttpProxyConnect";
+
 export interface TestResult {
   ok: boolean;
   elapsedMs: number;
@@ -12,7 +14,22 @@ export async function testProxyWithRetry(
   maxRetries: number = 3,
   maxLatencyMs: number = 2000
 ): Promise<TestResult> {
-  // Import the test function from controller (will need to be extracted)
-  // For now, we'll extract testHttpProxyConnect to a shared utility first
-  return { ok: true, elapsedMs: 100 }; // Placeholder
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const result = await testHttpProxyConnect({
+      proxyServer: server,
+      proxyUsername: username,
+      proxyPassword: password,
+      timeoutMs: maxLatencyMs,
+    });
+
+    if (result.ok && result.elapsedMs < maxLatencyMs) {
+      return result;
+    }
+
+    lastError = result.error || `Attempt ${attempt} failed`;
+  }
+
+  return { ok: false, elapsedMs: 0, error: lastError };
 }
