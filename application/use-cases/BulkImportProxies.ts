@@ -10,6 +10,8 @@ export interface BulkImportResult {
   errors: Array<{ line: number; raw: string; error: string }>;
 }
 
+const COUNTRY_LOOKUP_DELAY_MS = 1000;
+
 export default class BulkImportProxies {
   constructor(
     private readonly proxyRepository: IProxyRepository,
@@ -44,7 +46,7 @@ export default class BulkImportProxies {
 
       await Promise.all(
         batch.map(async ({ line, proxy, raw }) => {
-          const testResult = await testProxyWithRetry(proxy.server, proxy.username, proxy.password);
+          const testResult = await testProxyWithRetry(proxy.server, proxy.username, proxy.password, 3, 2000, true);
 
           if (!testResult.ok) {
             result.skipped++;
@@ -64,6 +66,7 @@ export default class BulkImportProxies {
               await this.proxyRepository.update(existing.id, {
                 username: proxy.username,
                 password: proxy.password,
+                country: testResult.country,
               });
               result.updated++;
             } else {
@@ -72,8 +75,16 @@ export default class BulkImportProxies {
                 username: proxy.username,
                 password: proxy.password,
                 status: "ACTIVE",
+                country: testResult.country,
               });
               result.created++;
+            }
+
+            // Apply rate limiting delay after successful country lookup
+            // Note: With Promise.all, multiple proxies in a batch may still trigger
+            // country lookups concurrently. For strict rate limiting, process sequentially.
+            if (testResult.country) {
+              await new Promise(resolve => setTimeout(resolve, COUNTRY_LOOKUP_DELAY_MS));
             }
           } catch (dbError: any) {
             result.skipped++;
