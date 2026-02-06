@@ -115,6 +115,13 @@ onMounted(fetchProxies)
             <button class="rounded-md border px-3 py-2 text-sm" @click="openBulkImport">
               Bulk Import
             </button>
+            <button
+              class="rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
+              :disabled="loading || deletingAll || proxies.length === 0"
+              @click="deleteAll"
+            >
+              {{ deletingAll ? 'Deleting...' : 'Delete All' }}
+            </button>
             <button class="rounded-md border px-3 py-2 text-sm" :disabled="loading" @click="fetchProxies">
               Refresh
             </button>
