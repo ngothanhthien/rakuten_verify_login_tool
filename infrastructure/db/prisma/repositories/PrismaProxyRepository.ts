@@ -84,6 +84,11 @@ export default class PrismaProxyRepository implements IProxyRepository {
     await prisma.$executeRaw`DELETE FROM "Proxy" WHERE id = ${id}`;
   }
 
+  async deleteAll(): Promise<number> {
+    const result = await prisma.proxy.deleteMany({});
+    return result.count;
+  }
+
   async rotate(): Promise<Proxy | null> {
     const updated = await prisma.$queryRaw<ProxyRow[]>`
       UPDATE "Proxy"
