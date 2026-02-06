@@ -127,6 +127,16 @@ export async function rotateProxy() {
   return response.data as Proxy
 }
 
+export async function bulkImportProxies(proxies: string): Promise<{
+  created: number
+  updated: number
+  skipped: number
+  errors: Array<{ line: number, raw: string, error: string }>
+}> {
+  const response = await axios.post('/api/proxies/bulk-import', { proxies })
+  return response.data
+}
+
 function createAxios(headers?: Record<string, string>) {
   return axios.create({
     baseURL: 'http://localhost:3000',
