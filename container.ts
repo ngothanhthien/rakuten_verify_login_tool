@@ -6,6 +6,7 @@ import TelegramNotifier from './infrastructure/notifier/TelegramNotifier'
 import FileCredentialImportSource from './infrastructure/CredentialImportSource/FileCredentialImportSource'
 import PlaywrightVerify from './infrastructure/verifier/PlaywrightVerify'
 import CredentialCheckRunner, { CredentialCheckRunnerConfig } from './application/services/CredentialCheckRunner'
+import { BulkImportProxies } from './application/use-cases/BulkImportProxies'
 import CredentialController from './infrastructure/http/CredentialController'
 import SettingService from './application/services/SettingService'
 import SettingController from './infrastructure/http/SettingController'
@@ -50,6 +51,8 @@ export async function buildContainer() {
     customRat: asValue(customRat),
 
     settingService: asClass(SettingService).singleton(),
+
+    bulkImportProxies: asClass(BulkImportProxies).scoped(),
 
     credentialCheckRunner: asClass(CredentialCheckRunner)
       .inject(() => ({ config: runnerConfig }))
