@@ -37,6 +37,7 @@ model Proxy {
   username String?
   password String?
   status String @default("ACTIVE")
+  country String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
