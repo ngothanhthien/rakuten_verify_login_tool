@@ -10,26 +10,27 @@ type ProxyRow = {
   username: string | null;
   password: string | null;
   status: string;
+  country: string | null;
 };
 
 export default class PrismaProxyRepository implements IProxyRepository {
   async list(): Promise<Proxy[]> {
     const records = await prisma.$queryRaw<ProxyRow[]>`
-      SELECT id, server, username, password, status FROM "Proxy" ORDER BY updatedAt DESC
+      SELECT id, server, username, password, status, country FROM "Proxy" ORDER BY updatedAt DESC
     `;
     return records.map(r => this.toEntity(r));
   }
 
   async findById(id: number): Promise<Proxy | null> {
     const records = await prisma.$queryRaw<ProxyRow[]>`
-      SELECT id, server, username, password, status FROM "Proxy" WHERE id = ${id} LIMIT 1
+      SELECT id, server, username, password, status, country FROM "Proxy" WHERE id = ${id} LIMIT 1
     `;
     return records[0] ? this.toEntity(records[0]) : null;
   }
 
   async findByServer(server: string): Promise<Proxy | null> {
     const records = await prisma.$queryRaw<ProxyRow[]>`
-      SELECT id, server, username, password, status
+      SELECT id, server, username, password, status, country
       FROM "Proxy"
       WHERE server = ${server}
       LIMIT 1
@@ -39,8 +40,8 @@ export default class PrismaProxyRepository implements IProxyRepository {
 
   async create(data: CreateProxyData): Promise<Proxy> {
     await prisma.$executeRaw`
-      INSERT INTO "Proxy" ("server", "username", "password", "status", "createdAt", "updatedAt")
-      VALUES (${data.server}, ${data.username ?? null}, ${data.password ?? null}, ${data.status ?? "ACTIVE"}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      INSERT INTO "Proxy" ("server", "username", "password", "status", "country", "createdAt", "updatedAt")
+      VALUES (${data.server}, ${data.username ?? null}, ${data.password ?? null}, ${data.status ?? "ACTIVE"}, ${data.country ?? null}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `;
 
     const inserted = await prisma.$queryRaw<Array<{ id: number }>>`SELECT last_insert_rowid() as id`;
@@ -67,10 +68,11 @@ export default class PrismaProxyRepository implements IProxyRepository {
     const username = data.username === undefined ? existing.username : data.username;
     const password = data.password === undefined ? existing.password : data.password;
     const status = data.status ?? existing.status;
+    const country = data.country === undefined ? existing.country : data.country;
 
     await prisma.$executeRaw`
       UPDATE "Proxy"
-      SET "server" = ${server}, "username" = ${username}, "password" = ${password}, "status" = ${status}, "updatedAt" = CURRENT_TIMESTAMP
+      SET "server" = ${server}, "username" = ${username}, "password" = ${password}, "status" = ${status}, "country" = ${country}, "updatedAt" = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `;
 
@@ -137,10 +139,10 @@ export default class PrismaProxyRepository implements IProxyRepository {
 
     return await prisma.$transaction(async (tx) => {
       // Count total active proxies
-      const countResult = await tx.$queryRaw<{ count: number }[]>`
+      const countResult = await tx.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(*) as count FROM "Proxy" WHERE status = 'ACTIVE'
       `;
-      const totalProxies = countResult[0].count;
+      const totalProxies = Number(countResult[0].count);
 
       // Edge case: fewer than 2 proxies means no workers
       if (totalProxies < 2) {
@@ -183,7 +185,8 @@ export default class PrismaProxyRepository implements IProxyRepository {
       server: model.server,
       username: model.username,
       password: model.password,
-      status: model.status
+      status: model.status,
+      country: model.country
     });
   }
 }
