@@ -1,9 +1,11 @@
 // application/services/CredentialCheckRunner.ts
 import ICredentialRepository from "../../core/repositories/ICredentialRepository";
+import IProxyRepository from "../../core/repositories/IProxyRepository";
 import IVerifyService from "../ports/IVerifyService";
 import IUiNotifier from "../ports/IUiNotifier";
 import ScanCredentialsUseCase from "../use-cases/ScanCredentials";
 import SettingService from "./SettingService";
+import { WorkerProxyAssignment } from "../../core/value-objects/WorkerProxyAssignment";
 
 export interface CheckStatus {
   isRunning: boolean;
@@ -41,9 +43,11 @@ export default class CredentialCheckRunner {
   private readonly batchSize: number;
   private readonly pollingIntervalMs: number;
   private readonly staleClaimTimeoutMinutes: number;
+  private workerProxyAssignments: Map<string, WorkerProxyAssignment> = new Map();
 
   constructor(
     private readonly credentialRepository: ICredentialRepository,
+    private readonly proxyRepository: IProxyRepository,
     private readonly verifyService: IVerifyService,
     private readonly uiNotifier: IUiNotifier,
     private readonly settingService: SettingService,
@@ -67,12 +71,37 @@ export default class CredentialCheckRunner {
 
     const isDebug = process.env.AUTOMATE_DEBUG === 'true';
 
-    this.concurrency = isDebug ? 1 : 5;
+    this.concurrency = isDebug ? 1 : 40;
+
+    // Validate minimum proxy count
+    const activeProxyCount = await this.proxyRepository.getActiveCount();
+    const requiredProxies = Math.ceil(this.concurrency * 2);
+
+    if (activeProxyCount < this.concurrency) {
+      throw new Error(
+        `Insufficient proxies: ${activeProxyCount} available, ` +
+        `${this.concurrency} required (minimum 1 per worker)`
+      );
+    }
+
+    // Assign proxies to workers
+    this.workerProxyAssignments = await this.proxyRepository.assignToWorkers(
+      this.concurrency,
+      2
+    );
+
+    this.status.total = Array.from(this.workerProxyAssignments.values())
+      .filter(a => a.proxy1).length;
+
+    console.log(
+      `Assigned ${this.workerProxyAssignments.size} workers with ` +
+      `${this.status.total} primary proxies`
+    );
 
     this.isRunning = true;
     this.status = {
       isRunning: true,
-      total: 0,
+      total: this.status.total,
       processed: 0,
       startedAt: new Date(),
       finishedAt: null,
@@ -144,7 +173,13 @@ export default class CredentialCheckRunner {
    * Run a single worker that continuously processes credentials
    */
   private async runWorker(workerId: string): Promise<void> {
-    console.log(`Starting ${workerId}`);
+    const proxyAssignment = this.workerProxyAssignments.get(workerId);
+
+    if (!proxyAssignment) {
+      throw new Error(`No proxy assignment found for worker ${workerId}`);
+    }
+
+    console.log(`Starting ${workerId} with proxies: ${proxyAssignment.proxy1?.server ?? 'none'}, ${proxyAssignment.proxy2?.server ?? 'none'}`);
     this.activeWorkers++;
 
     try {
@@ -156,6 +191,7 @@ export default class CredentialCheckRunner {
           {
             batchSize: this.batchSize,
             workerId,
+            proxyAssignment,
           }
         );
 
