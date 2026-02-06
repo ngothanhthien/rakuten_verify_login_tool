@@ -11,6 +11,14 @@ const deletingAll = ref(false)
 const error = ref<string | null>(null)
 const showBulkImport = ref(false)
 
+function getCountryFlag(code: string): string {
+  return code
+    .toUpperCase()
+    .replace(/./g, char =>
+      String.fromCodePoint(0x1F1A5 + char.charCodeAt(0))
+    );
+}
+
 async function fetchProxies() {
   loading.value = true
   error.value = null
@@ -123,6 +131,7 @@ onMounted(fetchProxies)
             <tr>
               <th class="p-3 font-medium">Server</th>
               <th class="p-3 font-medium">Status</th>
+              <th class="p-3 font-medium">Country</th>
               <th class="p-3 font-medium">Username</th>
               <th class="p-3 font-medium">Password</th>
               <th class="p-3 font-medium w-40"></th>
@@ -138,6 +147,10 @@ onMounted(fetchProxies)
                 >
                   {{ p.status }}
                 </span>
+              </td>
+              <td class="p-3">
+                <span v-if="p.country">{{ getCountryFlag(p.country) }} {{ p.country }}</span>
+                <span v-else class="text-gray-400">Unknown</span>
               </td>
               <td class="p-3">{{ p.username ?? '-' }}</td>
               <td class="p-3">
