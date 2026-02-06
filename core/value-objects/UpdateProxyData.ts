@@ -3,4 +3,5 @@ export default interface UpdateProxyData {
   username?: string | null;
   password?: string | null;
   status?: string;
+  country?: string | null;
 }

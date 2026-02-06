@@ -3,4 +3,5 @@ export default interface CreateProxyData {
   username?: string | null;
   password?: string | null;
   status?: string;
+  country?: string | null;
 }
