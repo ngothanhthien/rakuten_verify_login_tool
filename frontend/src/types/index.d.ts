@@ -54,6 +54,4 @@ export interface Proxy {
   username: string | null;
   password: string | null;
   status: 'ACTIVE' | 'INACTIVE';
-  usageCount: number;
-  usedAt: string | null;
 }
