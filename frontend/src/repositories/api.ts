@@ -117,11 +117,6 @@ export async function testProxy(id: number) {
   }
 }
 
-export async function rotateProxy() {
-  const response = await createAxios().post('/api/proxies/rotate')
-  return response.data as Proxy
-}
-
 export async function bulkImportProxies(proxies: string): Promise<{
   created: number
   updated: number
