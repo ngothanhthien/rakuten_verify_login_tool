@@ -45,36 +45,45 @@ export class BulkImportProxies {
       const batch = parsed.slice(i, i + concurrency);
 
       await Promise.all(
-        batch.map(async ({ proxy }) => {
+        batch.map(async ({ line, proxy, raw }) => {
           const testResult = await testProxyWithRetry(proxy.server, proxy.username, proxy.password);
 
           if (!testResult.ok) {
             result.skipped++;
             result.errors.push({
-              line: proxy.line,
-              raw: proxy.raw,
+              line: line,
+              raw: raw,
               error: testResult.error || "Test failed",
             });
             return;
           }
 
-          // Check for existing
-          const existing = await this.deps.proxyRepository.findByServer(proxy.server);
+          try {
+            // Check for existing
+            const existing = await this.deps.proxyRepository.findByServer(proxy.server);
 
-          if (existing) {
-            await this.deps.proxyRepository.update(existing.id, {
-              username: proxy.username,
-              password: proxy.password,
+            if (existing) {
+              await this.deps.proxyRepository.update(existing.id, {
+                username: proxy.username,
+                password: proxy.password,
+              });
+              result.updated++;
+            } else {
+              await this.deps.proxyRepository.create({
+                server: proxy.server,
+                username: proxy.username,
+                password: proxy.password,
+                status: "ACTIVE",
+              });
+              result.created++;
+            }
+          } catch (dbError: any) {
+            result.skipped++;
+            result.errors.push({
+              line: line,
+              raw: raw,
+              error: dbError?.message || "Database error",
             });
-            result.updated++;
-          } else {
-            await this.deps.proxyRepository.create({
-              server: proxy.server,
-              username: proxy.username,
-              password: proxy.password,
-              status: "ACTIVE",
-            });
-            result.created++;
           }
         })
       );
