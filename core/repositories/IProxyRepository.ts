@@ -9,6 +9,12 @@ export default interface IProxyRepository {
   create(data: CreateProxyData): Promise<Proxy>;
   update(id: number, data: UpdateProxyData): Promise<Proxy>;
   delete(id: number): Promise<void>;
-  deleteAll(): Promise<number>;  // Returns count of deleted proxies
+  deleteAll(): Promise<number>;
   rotate(): Promise<Proxy | null>;
+
+  // New methods for proxy injection model
+  assignToWorkers(workerCount: number, proxiesPerWorker: number): Promise<Map<string, import("../value-objects/WorkerProxyAssignment").WorkerProxyAssignment>>;
+  markProxyDead(proxyId: number): Promise<void>;
+  getActiveCount(): Promise<number>;
+  getTotalCount(): Promise<number>;
 }
