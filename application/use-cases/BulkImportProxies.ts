@@ -46,7 +46,7 @@ export default class BulkImportProxies {
 
       await Promise.all(
         batch.map(async ({ line, proxy, raw }) => {
-          const testResult = await testProxyWithRetry(proxy.server, proxy.username, proxy.password, 3, 2000, true);
+          const testResult = await testProxyWithRetry(proxy.server, proxy.username, proxy.password, 3, 8000, true);
 
           if (!testResult.ok) {
             result.skipped++;

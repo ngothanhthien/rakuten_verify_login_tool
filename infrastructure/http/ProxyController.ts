@@ -141,7 +141,7 @@ export default class ProxyController {
         proxyUsername,
         proxyPassword,
         timeoutMs: 5_000,
-      });
+      }, true);  // Enable country lookup
 
       res.json({
         ...result,
