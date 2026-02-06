@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import * as api from '@/repositories/api'
 
 interface ImportResult {
@@ -25,6 +25,7 @@ const text = ref('')
 const importing = ref(false)
 const result = ref<ImportResult | null>(null)
 const error = ref<string | null>(null)
+const timeoutId = ref<number | null>(null)
 
 const isOpen = ref(props.modelValue)
 
@@ -59,15 +60,21 @@ async function doImport() {
     emit('imported')
 
     // Auto-close after 2 seconds if successful
-    setTimeout(() => {
+    timeoutId.value = setTimeout(() => {
       close()
-    }, 2000)
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? e?.message ?? 'Import failed'
+    }, 2000) as unknown as number
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Import failed'
   } finally {
     importing.value = false
   }
 }
+
+onUnmounted(() => {
+  if (timeoutId.value) {
+    clearTimeout(timeoutId.value)
+  }
+})
 </script>
 
 <template>
