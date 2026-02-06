@@ -93,11 +93,6 @@ export async function listProxies() {
   return response.data as Proxy[]
 }
 
-export async function createProxy(payload: { server: string; username?: string | null; password?: string | null; status?: Proxy['status'] }) {
-  const response = await createAxios().post('/api/proxies/create', payload)
-  return response.data as Proxy
-}
-
 export async function updateProxy(
   id: number,
   payload: { server?: string; username?: string | null; password?: string | null; status?: Proxy['status'] },
