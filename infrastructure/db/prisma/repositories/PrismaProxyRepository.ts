@@ -148,7 +148,6 @@ export default class PrismaProxyRepository implements IProxyRepository {
         WHERE status = 'ACTIVE'
         ORDER BY "usedAt" ASC
         LIMIT ${workerCount * proxiesPerWorker}
-        FOR UPDATE SKIP LOCKED
       `;
 
       const assignments = new Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>();

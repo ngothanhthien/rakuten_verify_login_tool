@@ -37,8 +37,6 @@ model Proxy {
   username String?
   password String?
   status String @default("ACTIVE")
-  usageCount Int @default(0)
-  usedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
