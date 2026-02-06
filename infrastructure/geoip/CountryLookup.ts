@@ -7,7 +7,7 @@
  * 3. geoip-lite - Local database (final fallback)
  */
 
-import * as geoip from 'geoip-lite';
+import geoip from 'geoip-lite';
 
 export interface CountryResult {
   country: string | null; // ISO 3166-1 alpha-2 code or null if all fail

@@ -228,10 +228,8 @@ export async function testHttpProxyConnect(
 
           try {
             const bodyStr = body.toString("utf8");
-            console.log(`[testHttpProxyConnect] ipify response: ${bodyStr.substring(0, 200)}`);
             const json = JSON.parse(bodyStr);
             const ip = typeof json?.ip === "string" ? json.ip : undefined;
-            console.log(`[testHttpProxyConnect] extracted ip: ${ip}, fetchCountry: ${fetchCountry}`);
             if (!ip) {
               return finish({ ok: false, statusCode: httpStatus, error: "ipify response missing ip" });
             }
@@ -240,10 +238,8 @@ export async function testHttpProxyConnect(
             let country: string | null | undefined = undefined;
             if (fetchCountry && ip) {
               try {
-                console.log(`[testHttpProxyConnect] Looking up country for IP: ${ip}`);
                 const result = await countryLookup.lookupCountry(ip);
                 country = result.country;
-                console.log(`[testHttpProxyConnect] Country lookup result: ${country}`);
               } catch (err: any) {
                 console.warn(`[testHttpProxyConnect] Country lookup failed for IP ${ip}:`, err?.message);
                 country = null; // Don't fail the proxy test if country lookup fails
@@ -252,7 +248,6 @@ export async function testHttpProxyConnect(
 
             return finish({ ok: true, statusCode: httpStatus, ip, country });
           } catch (e: any) {
-            console.error(`[testHttpProxyConnect] JSON parse error:`, e?.message);
             return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to parse JSON" });
           }
         });
