@@ -187,8 +187,8 @@ export default class ProxyController {
     try {
       const { proxies } = req.body ?? {};
 
-      if (typeof proxies !== "string") {
-        return res.status(400).json({ message: "proxies is required and must be a string" });
+      if (typeof proxies !== "string" || !proxies.trim()) {
+        return res.status(400).json({ message: "proxies is required and must be a non-empty string" });
       }
 
       const result = await this.bulkImportProxies.execute(proxies);
