@@ -28,6 +28,30 @@ rakuten/
 2. Run `npm start` to run the application
 3. The application will run TypeScript directly using `tsx`
 
+## Proxy Requirements
+
+The application uses a worker-based proxy injection model for credential verification. Each worker requires dedicated proxies to operate efficiently.
+
+### Proxy Quantity
+
+- **Minimum**: `CONCURRENCY` proxies (e.g., 40 proxies for default concurrency of 40)
+- **Recommended**: `CONCURRENCY * 2` proxies for full round-robin coverage
+- Each worker is assigned exactly 2 proxies at startup
+
+### Worker Behavior
+
+- Workers round-robin between their 2 assigned proxies
+- Workers terminate automatically when both assigned proxies die
+- Proxy health is monitored continuously
+- Failed proxies are automatically replaced from the available pool
+
+### Configuration
+
+Proxy requirements are controlled by:
+- `CREDENTIAL_CHECK_CONCURRENCY` environment variable (default: 40)
+- Proxy pool size in the database (`proxies` table)
+- Worker lifecycle management ensures optimal resource utilization
+
 ### Notes
 
 - **No compilation needed**: `tsx` runs TypeScript files directly
