@@ -1,5 +1,6 @@
 import net from "node:net";
 import tls from "node:tls";
+import { countryLookup } from "../geoip/CountryLookup";
 
 export interface TestProxyOptions {
   proxyServer: string;
@@ -14,6 +15,7 @@ export interface TestProxyResult {
   ip?: string;
   error?: string;
   elapsedMs: number;
+  country?: string | null;
 }
 
 export function parseProxyEndpoint(server: string): { host: string; port: number } {
@@ -63,7 +65,10 @@ export function decodeChunkedBody(buffer: Buffer): Buffer {
   return Buffer.concat(out);
 }
 
-export async function testHttpProxyConnect(opts: TestProxyOptions): Promise<TestProxyResult> {
+export async function testHttpProxyConnect(
+  opts: TestProxyOptions,
+  fetchCountry: boolean = false
+): Promise<TestProxyResult> {
   const timeoutMs = opts.timeoutMs ?? 12_000;
   const startedAt = Date.now();
 
@@ -227,7 +232,21 @@ export async function testHttpProxyConnect(opts: TestProxyOptions): Promise<Test
             if (!ip) {
               return finish({ ok: false, statusCode: httpStatus, error: "ipify response missing ip" });
             }
-            return finish({ ok: true, statusCode: httpStatus, ip });
+
+            // If fetchCountry is enabled, look up the country asynchronously
+            if (fetchCountry && ip) {
+              countryLookup.lookupCountry(ip)
+                .then((result) => {
+                  finish({ ok: true, statusCode: httpStatus, ip, country: result.country });
+                })
+                .catch((err) => {
+                  console.warn(`[testHttpProxyConnect] Country lookup failed for IP ${ip}:`, err?.message);
+                  // Don't fail the proxy test if country lookup fails
+                  finish({ ok: true, statusCode: httpStatus, ip, country: null });
+                });
+            } else {
+              return finish({ ok: true, statusCode: httpStatus, ip });
+            }
           } catch (e: any) {
             return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to parse JSON" });
           }
