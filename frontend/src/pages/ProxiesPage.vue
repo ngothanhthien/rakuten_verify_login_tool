@@ -2,12 +2,14 @@
 import { onMounted, ref } from 'vue'
 import type { Proxy } from '@/types'
 import * as api from '@/repositories/api'
+import BulkImportModal from '@/parts/HomePage/BulkImportModal.vue'
 
 const proxies = ref<Proxy[]>([])
 const loading = ref(false)
 const testingId = ref<number | null>(null)
 const rotating = ref(false)
 const error = ref<string | null>(null)
+const showBulkImport = ref(false)
 
 async function fetchProxies() {
   loading.value = true
@@ -65,6 +67,10 @@ async function rotate() {
   }
 }
 
+function openBulkImport() {
+  showBulkImport.value = true
+}
+
 onMounted(fetchProxies)
 </script>
 
@@ -87,6 +93,9 @@ onMounted(fetchProxies)
           <div class="flex gap-2">
             <button class="rounded-md border px-3 py-2 text-sm" :disabled="rotating" @click="rotate">
               {{ rotating ? 'Rotating...' : 'Rotate' }}
+            </button>
+            <button class="rounded-md border px-3 py-2 text-sm" @click="openBulkImport">
+              Bulk Import
             </button>
             <button class="rounded-md border px-3 py-2 text-sm" :disabled="loading" @click="fetchProxies">
               Refresh
@@ -149,5 +158,7 @@ onMounted(fetchProxies)
         </table>
       </div>
     </div>
+
+    <BulkImportModal v-model="showBulkImport" @imported="fetchProxies" />
   </div>
 </template>
