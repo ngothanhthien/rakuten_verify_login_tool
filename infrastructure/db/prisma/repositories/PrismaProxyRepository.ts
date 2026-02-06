@@ -171,6 +171,7 @@ export default class PrismaProxyRepository implements IProxyRepository {
     await tx.proxy.update({
       where: { id: proxyId },
       data: {
+        status: 'IN_USE',
         usedAt: new Date(),
         usageCount: { increment: 1 },
         updatedAt: new Date()
