@@ -173,4 +173,14 @@ export default class ProxyController {
       res.status(500).json({ message: error?.message ?? "Internal server error" });
     }
   }
+
+  async deleteAll(req: Request, res: Response) {
+    try {
+      const count = await this.proxyRepository.deleteAll();
+      res.json({ message: `Deleted ${count} proxy(ies)`, count });
+    } catch (error) {
+      console.error("Error in proxies deleteAll:", error);
+      res.status(500).json({ message: error?.message ?? "Internal server error" });
+    }
+  }
 }
