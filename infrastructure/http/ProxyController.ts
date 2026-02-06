@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type IProxyRepository from "../../core/repositories/IProxyRepository";
 import { testHttpProxyConnect, parseProxyEndpoint, decodeChunkedBody } from "./testHttpProxyConnect";
+import { BulkImportProxies } from "../../application/use-cases/BulkImportProxies";
 
 function toOptionalStringOrNull(value: unknown): string | null | undefined {
   if (value === undefined) return undefined;
@@ -17,6 +18,7 @@ function isProxyStatus(value: unknown): value is "ACTIVE" | "INACTIVE" {
 export default class ProxyController {
   constructor(
     private readonly proxyRepository: IProxyRepository,
+    private readonly bulkImportProxies: BulkImportProxies,
   ) {}
 
   async list(req: Request, res: Response) {
@@ -177,6 +179,22 @@ export default class ProxyController {
       });
     } catch (error) {
       console.error("Error in proxies test:", error);
+      res.status(500).json({ message: error?.message ?? "Internal server error" });
+    }
+  }
+
+  async bulkImport(req: Request, res: Response) {
+    try {
+      const { proxies } = req.body ?? {};
+
+      if (typeof proxies !== "string") {
+        return res.status(400).json({ message: "proxies is required and must be a string" });
+      }
+
+      const result = await this.bulkImportProxies.execute(proxies);
+      res.json(result);
+    } catch (error) {
+      console.error("Error in proxies bulkImport:", error);
       res.status(500).json({ message: error?.message ?? "Internal server error" });
     }
   }
