@@ -30,7 +30,6 @@ export function registerRoutes(app: Express) {
 
   router.get('/proxies/list', proxiesApi('list'))
   router.get('/proxies/get', proxiesApi('get'))
-  router.post('/proxies/create', proxiesApi('create'))
   router.post('/proxies/update', proxiesApi('update'))
   router.post('/proxies/delete', proxiesApi('delete'))
   router.post('/proxies/test', proxiesApi('test'))

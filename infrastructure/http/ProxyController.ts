@@ -50,31 +50,6 @@ export default class ProxyController {
     }
   }
 
-  async create(req: Request, res: Response) {
-    try {
-      const { server, username, password, status } = req.body ?? {};
-      if (typeof server !== "string" || !server.trim()) {
-        return res.status(400).json({ message: "server is required" });
-      }
-
-      if (status !== undefined && !isProxyStatus(status)) {
-        return res.status(400).json({ message: "status must be ACTIVE or INACTIVE" });
-      }
-
-      const created = await this.proxyRepository.create({
-        server: server.trim(),
-        username: toOptionalStringOrNull(username) ?? null,
-        password: toOptionalStringOrNull(password) ?? null,
-        status: status ?? "ACTIVE",
-      });
-
-      res.json(created.toJSON());
-    } catch (error) {
-      console.error("Error in proxies create:", error);
-      res.status(500).json({ message: error?.message ?? "Internal server error" });
-    }
-  }
-
   async update(req: Request, res: Response) {
     try {
       const { id, server, username, password, status } = req.body ?? {};
