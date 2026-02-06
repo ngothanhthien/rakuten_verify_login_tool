@@ -101,10 +101,7 @@ export default class CredentialCheckRunner {
     }
 
     // Assign proxies to workers
-    this.workerProxyAssignments = await this.proxyRepository.assignToWorkers(
-      this.concurrency,
-      2
-    );
+    this.workerProxyAssignments = await this.proxyRepository.assignToWorkers();
 
     // Use temporary variable to avoid circular reference
     const totalPrimaryProxies = Array.from(this.workerProxyAssignments.values())
