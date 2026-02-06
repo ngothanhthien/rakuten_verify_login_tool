@@ -29,6 +29,16 @@ export default class PrismaProxyRepository implements IProxyRepository {
     return records[0] ? this.toEntity(records[0]) : null;
   }
 
+  async findByServer(server: string): Promise<Proxy | null> {
+    const records = await prisma.$queryRaw<ProxyRow[]>`
+      SELECT id, server, username, password, status, usageCount, usedAt
+      FROM "Proxy"
+      WHERE server = ${server}
+      LIMIT 1
+    `;
+    return records[0] ? this.toEntity(records[0]) : null;
+  }
+
   async create(data: CreateProxyData): Promise<Proxy> {
     await prisma.$executeRaw`
       INSERT INTO "Proxy" ("server", "username", "password", "status", "createdAt", "updatedAt")
