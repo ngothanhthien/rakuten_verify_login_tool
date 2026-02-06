@@ -133,8 +133,8 @@ export async function bulkImportProxies(proxies: string): Promise<{
   skipped: number
   errors: Array<{ line: number, raw: string, error: string }>
 }> {
-  const response = await axios.post('/api/proxies/bulk-import', { proxies })
-  return response.data
+  const response = await createAxios().post('/api/proxies/bulk-import', { proxies });
+  return response.data;
 }
 
 function createAxios(headers?: Record<string, string>) {
