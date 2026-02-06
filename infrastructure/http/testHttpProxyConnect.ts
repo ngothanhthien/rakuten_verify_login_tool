@@ -182,7 +182,7 @@ export async function testHttpProxyConnect(
         const chunks: Buffer[] = [];
         secureSocket.on("data", (d) => chunks.push(Buffer.from(d)));
 
-        secureSocket.on("end", () => {
+        secureSocket.on("end", async () => {
           if (finished) return;
 
           const raw = Buffer.concat(chunks);
@@ -233,20 +233,19 @@ export async function testHttpProxyConnect(
               return finish({ ok: false, statusCode: httpStatus, error: "ipify response missing ip" });
             }
 
-            // If fetchCountry is enabled, look up the country asynchronously
+            // If fetchCountry is enabled, look up the country
+            let country: string | null | undefined = undefined;
             if (fetchCountry && ip) {
-              countryLookup.lookupCountry(ip)
-                .then((result) => {
-                  finish({ ok: true, statusCode: httpStatus, ip, country: result.country });
-                })
-                .catch((err) => {
-                  console.warn(`[testHttpProxyConnect] Country lookup failed for IP ${ip}:`, err?.message);
-                  // Don't fail the proxy test if country lookup fails
-                  finish({ ok: true, statusCode: httpStatus, ip, country: null });
-                });
-            } else {
-              return finish({ ok: true, statusCode: httpStatus, ip });
+              try {
+                const result = await countryLookup.lookupCountry(ip);
+                country = result.country;
+              } catch (err: any) {
+                console.warn(`[testHttpProxyConnect] Country lookup failed for IP ${ip}:`, err?.message);
+                country = null; // Don't fail the proxy test if country lookup fails
+              }
             }
+
+            return finish({ ok: true, statusCode: httpStatus, ip, country });
           } catch (e: any) {
             return finish({ ok: false, statusCode: httpStatus, error: e?.message ?? "Failed to parse JSON" });
           }
