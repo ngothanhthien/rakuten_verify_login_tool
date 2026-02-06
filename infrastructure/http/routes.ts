@@ -34,6 +34,7 @@ export function registerRoutes(app: Express) {
   router.post('/proxies/delete', proxiesApi('delete'))
   router.post('/proxies/test', proxiesApi('test'))
   router.post('/proxies/bulk-import', proxiesApi('bulkImport'))
+  router.post('/proxies/delete-all', proxiesApi('deleteAll'))
 
   app.use('/api', router)
 }
