@@ -109,6 +109,75 @@ export default class PrismaProxyRepository implements IProxyRepository {
     return updated[0] ? this.toEntity(updated[0]) : null;
   }
 
+  async getActiveCount(): Promise<number> {
+    const result = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) as count
+      FROM "Proxy"
+      WHERE status = 'ACTIVE'
+    `;
+    return Number(result[0].count);
+  }
+
+  async getTotalCount(): Promise<number> {
+    const result = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) as count
+      FROM "Proxy"
+    `;
+    return Number(result[0].count);
+  }
+
+  async markProxyDead(proxyId: number): Promise<void> {
+    await prisma.proxy.update({
+      where: { id: proxyId },
+      data: {
+        status: 'DEAD',
+        updatedAt: new Date()
+      }
+    });
+  }
+
+  async assignToWorkers(
+    workerCount: number,
+    proxiesPerWorker: number
+  ): Promise<Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>> {
+    const { createWorkerProxyAssignment } = await import('../../../../core/value-objects/WorkerProxyAssignment');
+
+    return await prisma.$transaction(async (tx) => {
+      const proxies = await tx.$queryRaw<any[]>`
+        SELECT * FROM "Proxy"
+        WHERE status = 'ACTIVE'
+        ORDER BY "usedAt" ASC
+        LIMIT ${workerCount * proxiesPerWorker}
+        FOR UPDATE SKIP LOCKED
+      `;
+
+      const assignments = new Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>();
+
+      for (let i = 0; i < workerCount; i++) {
+        const proxy1 = proxies[i * 2] ? this.toEntity(proxies[i * 2]) : null;
+        const proxy2 = proxies[i * 2 + 1] ? this.toEntity(proxies[i * 2 + 1]) : null;
+
+        assignments.set(`worker-${i + 1}`, createWorkerProxyAssignment(proxy1, proxy2));
+
+        if (proxy1) await this.markInUse(tx, proxy1.id);
+        if (proxy2) await this.markInUse(tx, proxy2.id);
+      }
+
+      return assignments;
+    });
+  }
+
+  private async markInUse(tx: any, proxyId: number): Promise<void> {
+    await tx.proxy.update({
+      where: { id: proxyId },
+      data: {
+        usedAt: new Date(),
+        usageCount: { increment: 1 },
+        updatedAt: new Date()
+      }
+    });
+  }
+
   private toEntity(model: any) {
     const usedAt = model.usedAt ? new Date(model.usedAt) : null;
     return Proxy.create({
