@@ -147,19 +147,22 @@ export default class PrismaProxyRepository implements IProxyRepository {
         return new Map();
       }
 
-      // Calculate: max 40 workers, proxies distributed evenly (2 per worker)
+      // Calculate optimal worker count based on total proxies and max concurrency
+      // Each worker requires 2 proxies (for round-robin rotation)
+      // This ensures ALL available proxies are distributed across workers
       const maxConcurrency = 40;
       const workerCount = Math.min(Math.floor(totalProxies / 2), maxConcurrency);
 
-      // Fetch required proxies (2 per worker)
+      // Fetch exactly the number of proxies we need (2 per worker)
+      const requiredProxies = workerCount * 2;
       const proxies = await tx.$queryRaw<any[]>`
         SELECT * FROM "Proxy"
         WHERE status = 'ACTIVE'
         ORDER BY id ASC
-        LIMIT ${workerCount * 2}
+        LIMIT ${requiredProxies}
       `;
 
-      // Distribute to workers
+      // Distribute proxies evenly across workers (2 per worker)
       const assignments = new Map();
       for (let i = 0; i < workerCount; i++) {
         const proxy1 = proxies[i * 2] ? this.toEntity(proxies[i * 2]) : null;
