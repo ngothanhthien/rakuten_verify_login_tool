@@ -10,28 +10,26 @@ type ProxyRow = {
   username: string | null;
   password: string | null;
   status: string;
-  usageCount: number;
-  usedAt: string | Date | null;
 };
 
 export default class PrismaProxyRepository implements IProxyRepository {
   async list(): Promise<Proxy[]> {
     const records = await prisma.$queryRaw<ProxyRow[]>`
-      SELECT id, server, username, password, status, usageCount, usedAt FROM "Proxy" ORDER BY updatedAt DESC
+      SELECT id, server, username, password, status FROM "Proxy" ORDER BY updatedAt DESC
     `;
     return records.map(r => this.toEntity(r));
   }
 
   async findById(id: number): Promise<Proxy | null> {
     const records = await prisma.$queryRaw<ProxyRow[]>`
-      SELECT id, server, username, password, status, usageCount, usedAt FROM "Proxy" WHERE id = ${id} LIMIT 1
+      SELECT id, server, username, password, status FROM "Proxy" WHERE id = ${id} LIMIT 1
     `;
     return records[0] ? this.toEntity(records[0]) : null;
   }
 
   async findByServer(server: string): Promise<Proxy | null> {
     const records = await prisma.$queryRaw<ProxyRow[]>`
-      SELECT id, server, username, password, status, usageCount, usedAt
+      SELECT id, server, username, password, status
       FROM "Proxy"
       WHERE server = ${server}
       LIMIT 1
@@ -136,58 +134,53 @@ export default class PrismaProxyRepository implements IProxyRepository {
     });
   }
 
-  async assignToWorkers(
-    workerCount: number,
-    proxiesPerWorker: number
-  ): Promise<Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>> {
+  async assignToWorkers(): Promise<Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>> {
     const { createWorkerProxyAssignment } = await import('../../../../core/value-objects/WorkerProxyAssignment');
 
     return await prisma.$transaction(async (tx) => {
+      // Count total active proxies
+      const countResult = await tx.$queryRaw<{ count: number }[]>`
+        SELECT COUNT(*) as count FROM "Proxy" WHERE status = 'ACTIVE'
+      `;
+      const totalProxies = countResult[0].count;
+
+      // Edge case: fewer than 2 proxies means no workers
+      if (totalProxies < 2) {
+        return new Map();
+      }
+
+      // Calculate: max 40 workers, proxies distributed evenly (2 per worker)
+      const maxConcurrency = 40;
+      const workerCount = Math.min(Math.floor(totalProxies / 2), maxConcurrency);
+
+      // Fetch required proxies (2 per worker)
       const proxies = await tx.$queryRaw<any[]>`
         SELECT * FROM "Proxy"
         WHERE status = 'ACTIVE'
-        ORDER BY "usedAt" ASC
-        LIMIT ${workerCount * proxiesPerWorker}
+        ORDER BY id ASC
+        LIMIT ${workerCount * 2}
       `;
 
-      const assignments = new Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>();
-
+      // Distribute to workers
+      const assignments = new Map();
       for (let i = 0; i < workerCount; i++) {
         const proxy1 = proxies[i * 2] ? this.toEntity(proxies[i * 2]) : null;
         const proxy2 = proxies[i * 2 + 1] ? this.toEntity(proxies[i * 2 + 1]) : null;
 
         assignments.set(`worker-${i + 1}`, createWorkerProxyAssignment(proxy1, proxy2));
-
-        if (proxy1) await this.markInUse(tx, proxy1.id);
-        if (proxy2) await this.markInUse(tx, proxy2.id);
       }
 
       return assignments;
     });
   }
 
-  private async markInUse(tx: any, proxyId: number): Promise<void> {
-    await tx.proxy.update({
-      where: { id: proxyId },
-      data: {
-        status: 'IN_USE',
-        usedAt: new Date(),
-        usageCount: { increment: 1 },
-        updatedAt: new Date()
-      }
-    });
-  }
-
   private toEntity(model: any) {
-    const usedAt = model.usedAt ? new Date(model.usedAt) : null;
     return Proxy.create({
       id: model.id,
       server: model.server,
-      username: model.username ?? null,
-      password: model.password ?? null,
-      status: model.status,
-      usageCount: model.usageCount ?? 0,
-      usedAt,
+      username: model.username,
+      password: model.password,
+      status: model.status
     });
   }
 }
