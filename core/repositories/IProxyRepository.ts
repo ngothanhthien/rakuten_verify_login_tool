@@ -10,7 +10,7 @@ export default interface IProxyRepository {
   update(id: number, data: UpdateProxyData): Promise<Proxy>;
   delete(id: number): Promise<void>;
   deleteAll(): Promise<number>;
-  rotate(): Promise<Proxy | null>;
+  rotate(oldProxyId: number, newProxyId: number): Promise<void>;
 
   // New methods for proxy injection model
   assignToWorkers(): Promise<Map<string, import("../value-objects/WorkerProxyAssignment").WorkerProxyAssignment>>;

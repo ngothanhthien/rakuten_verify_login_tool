@@ -87,24 +87,22 @@ export default class PrismaProxyRepository implements IProxyRepository {
     return result.count;
   }
 
-  async rotate(): Promise<Proxy | null> {
-    const updated = await prisma.$queryRaw<ProxyRow[]>`
-      UPDATE "Proxy"
-      SET
-        "usageCount" = "usageCount" + 1,
-        "usedAt" = CURRENT_TIMESTAMP,
-        "updatedAt" = CURRENT_TIMESTAMP
-      WHERE id = (
-        SELECT id
-        FROM "Proxy"
-        WHERE status = 'ACTIVE'
-        ORDER BY ("usedAt" IS NOT NULL) ASC, "usedAt" ASC
-        LIMIT 1
-      )
-      RETURNING id, server, username, password, status, usageCount, usedAt
-    `;
+  async rotate(oldProxyId: number, newProxyId: number): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      // Set old proxy back to ACTIVE
+      await tx.$queryRaw`
+        UPDATE "Proxy"
+        SET status = 'ACTIVE', "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${oldProxyId}
+      `;
 
-    return updated[0] ? this.toEntity(updated[0]) : null;
+      // Set new proxy to IN_USE
+      await tx.$queryRaw`
+        UPDATE "Proxy"
+        SET status = 'IN_USE', "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${newProxyId}
+      `;
+    });
   }
 
   async getActiveCount(): Promise<number> {
