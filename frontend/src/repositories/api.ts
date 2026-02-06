@@ -132,6 +132,11 @@ export async function bulkImportProxies(proxies: string): Promise<{
   return response.data;
 }
 
+export async function deleteAllProxies(): Promise<{ message: string; count: number }> {
+  const response = await createAxios().post('/api/proxies/delete-all')
+  return response.data
+}
+
 function createAxios(headers?: Record<string, string>) {
   return axios.create({
     baseURL: 'http://localhost:3000',
