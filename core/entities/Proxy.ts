@@ -1,11 +1,9 @@
 export interface ProxyProps {
-  id: number;
+  id?: number;
   server: string;
-  username: string | null;
-  password: string | null;
-  status: string;
-  usageCount: number;
-  usedAt: Date | null;
+  username?: string | null;
+  password?: string | null;
+  status?: string;
 }
 
 export class Proxy {
@@ -20,8 +18,6 @@ export class Proxy {
   get username() { return this.props.username; }
   get password() { return this.props.password; }
   get status() { return this.props.status; }
-  get usageCount() { return this.props.usageCount; }
-  get usedAt() { return this.props.usedAt; }
 
   static create(props: ProxyProps) {
     return new Proxy(props);
@@ -34,8 +30,6 @@ export class Proxy {
       username: this.username,
       password: this.password,
       status: this.status,
-      usageCount: this.usageCount,
-      usedAt: this.usedAt,
     };
   }
 }
