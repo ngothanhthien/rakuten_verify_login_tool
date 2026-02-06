@@ -33,7 +33,7 @@ export async function buildContainer() {
   }
 
   const runnerConfig: CredentialCheckRunnerConfig = {
-    concurrency: isDebug ? 1 : 5,
+    concurrency: isDebug ? 1 : 40,
     batchSize: parseInt(process.env.CREDENTIAL_CHECK_BATCH_SIZE || '3', 10),
     pollingIntervalMs: parseInt(process.env.CREDENTIAL_CHECK_POLLING_INTERVAL_MS || '1000', 10),
     staleClaimTimeoutMinutes: parseInt(process.env.CREDENTIAL_CHECK_STALE_TIMEOUT_MINUTES || '10', 10),
@@ -55,7 +55,10 @@ export async function buildContainer() {
     bulkImportProxies: asClass(BulkImportProxies).scoped(),
 
     credentialCheckRunner: asClass(CredentialCheckRunner)
-      .inject(() => ({ config: runnerConfig }))
+      .inject((cradle: any) => ({
+        ...cradle,
+        config: runnerConfig
+      }))
       .singleton(),
 
     credentialController: asClass(CredentialController).scoped(),

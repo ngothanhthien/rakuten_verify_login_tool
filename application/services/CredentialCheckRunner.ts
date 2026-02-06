@@ -84,24 +84,33 @@ export default class CredentialCheckRunner {
       );
     }
 
+    // Add warning if not enough for full round-robin
+    if (activeProxyCount < requiredProxies) {
+      console.warn(
+        `Warning: Only ${activeProxyCount} proxies available for ${requiredProxies} required. ` +
+        `Some workers may not have backup proxies.`
+      );
+    }
+
     // Assign proxies to workers
     this.workerProxyAssignments = await this.proxyRepository.assignToWorkers(
       this.concurrency,
       2
     );
 
-    this.status.total = Array.from(this.workerProxyAssignments.values())
+    // Use temporary variable to avoid circular reference
+    const totalPrimaryProxies = Array.from(this.workerProxyAssignments.values())
       .filter(a => a.proxy1).length;
 
     console.log(
       `Assigned ${this.workerProxyAssignments.size} workers with ` +
-      `${this.status.total} primary proxies`
+      `${totalPrimaryProxies} primary proxies`
     );
 
     this.isRunning = true;
     this.status = {
       isRunning: true,
-      total: this.status.total,
+      total: totalPrimaryProxies,
       processed: 0,
       startedAt: new Date(),
       finishedAt: null,
@@ -175,11 +184,11 @@ export default class CredentialCheckRunner {
   private async runWorker(workerId: string): Promise<void> {
     const proxyAssignment = this.workerProxyAssignments.get(workerId);
 
-    if (!proxyAssignment) {
-      throw new Error(`No proxy assignment found for worker ${workerId}`);
+    if (!proxyAssignment || !proxyAssignment.proxy1) {
+      throw new Error(`Worker ${workerId} has no primary proxy assigned`);
     }
 
-    console.log(`Starting ${workerId} with proxies: ${proxyAssignment.proxy1?.server ?? 'none'}, ${proxyAssignment.proxy2?.server ?? 'none'}`);
+    console.log(`Starting ${workerId} with proxies: ${proxyAssignment.proxy1.server}, ${proxyAssignment.proxy2?.server ?? 'none'}`);
     this.activeWorkers++;
 
     try {
