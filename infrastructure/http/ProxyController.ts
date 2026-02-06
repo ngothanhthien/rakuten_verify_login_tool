@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type IProxyRepository from "../../core/repositories/IProxyRepository";
 import { testHttpProxyConnect, parseProxyEndpoint, decodeChunkedBody } from "./testHttpProxyConnect";
-import { BulkImportProxies } from "../../application/use-cases/BulkImportProxies";
+import BulkImportProxies from "../../application/use-cases/BulkImportProxies";
 
 function toOptionalStringOrNull(value: unknown): string | null | undefined {
   if (value === undefined) return undefined;

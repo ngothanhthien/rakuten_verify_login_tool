@@ -10,12 +10,10 @@ export interface BulkImportResult {
   errors: Array<{ line: number; raw: string; error: string }>;
 }
 
-export interface BulkImportProxiesDeps {
-  proxyRepository: IProxyRepository;
-}
-
-export class BulkImportProxies {
-  constructor(private readonly deps: BulkImportProxiesDeps) {}
+export default class BulkImportProxies {
+  constructor(
+    private readonly proxyRepository: IProxyRepository,
+  ) {}
 
   async execute(proxiesText: string, concurrency: number = 5): Promise<BulkImportResult> {
     const lines = proxiesText.split("\n");
@@ -60,16 +58,16 @@ export class BulkImportProxies {
 
           try {
             // Check for existing
-            const existing = await this.deps.proxyRepository.findByServer(proxy.server);
+            const existing = await this.proxyRepository.findByServer(proxy.server);
 
             if (existing) {
-              await this.deps.proxyRepository.update(existing.id, {
+              await this.proxyRepository.update(existing.id, {
                 username: proxy.username,
                 password: proxy.password,
               });
               result.updated++;
             } else {
-              await this.deps.proxyRepository.create({
+              await this.proxyRepository.create({
                 server: proxy.server,
                 username: proxy.username,
                 password: proxy.password,
