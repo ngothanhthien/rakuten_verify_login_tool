@@ -34,7 +34,7 @@ export function registerRoutes(app: Express) {
   router.post('/proxies/update', proxiesApi('update'))
   router.post('/proxies/delete', proxiesApi('delete'))
   router.post('/proxies/test', proxiesApi('test'))
-  router.post('/proxies/bulk-import', upload.single('file'), proxiesApi('bulkImport'))
+  router.post('/proxies/bulk-import', proxiesApi('bulkImport'))
 
   app.use('/api', router)
 }
