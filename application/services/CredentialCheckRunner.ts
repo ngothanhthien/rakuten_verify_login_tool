@@ -16,6 +16,10 @@ export interface CheckStatus {
   lastError?: string | null;
   concurrency: number;
   activeWorkers: number;
+  totalProxies: number;
+  activeProxies: number;
+  deadProxies: number;
+  workersWithDeadProxies: number;
 }
 
 export interface CredentialCheckRunnerConfig {
@@ -37,6 +41,10 @@ export default class CredentialCheckRunner {
     lastError: null,
     concurrency: 1,
     activeWorkers: 0,
+    totalProxies: 0,
+    activeProxies: 0,
+    deadProxies: 0,
+    workersWithDeadProxies: 0,
   };
 
   private concurrency: number;
@@ -117,6 +125,10 @@ export default class CredentialCheckRunner {
       lastError: null,
       concurrency: this.concurrency,
       activeWorkers: 0,
+      totalProxies: activeProxyCount,
+      activeProxies: activeProxyCount,
+      deadProxies: 0,
+      workersWithDeadProxies: 0,
     };
 
     // Start stale claim cleanup task
