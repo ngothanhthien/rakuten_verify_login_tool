@@ -1,0 +1,68 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "Context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {}
+    },
+    "morph-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@morphllm/morphmcp"
+      ],
+      "env": {
+        "MORPH_API_KEY": "sk-5DqDlKia-nM6wGWyng2kv9PXAzdB8qsXgFENW4mOSyS3te98",
+        "ENABLED_TOOLS": "edit_file,warpgrep_codebase_search"
+      }
+    },
+    "zai-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@z_ai/mcp-server",
+        "--env",
+        "Z_AI_API_KEY=a03f134de60947f9b2dd6989918ddf5d.jzdxocwGVqBN5pf5",
+        "--env",
+        "Z_AI_MODE=ZAI"
+      ],
+      "env": {}
+    },
+    "web-search-prime": {
+      "type": "http",
+      "url": "https://api.z.ai/api/mcp/web_search_prime/mcp",
+      "headers": {
+        "Authorization": "Bearer a03f134de60947f9b2dd6989918ddf5d.jzdxocwGVqBN5pf5"
+      }
+    },
+    "web-reader": {
+      "type": "http",
+      "url": "https://api.z.ai/api/mcp/web_reader/mcp",
+      "headers": {
+        "Authorization": "Bearer a03f134de60947f9b2dd6989918ddf5d.jzdxocwGVqBN5pf5"
+      }
+    },
+    "zread": {
+      "type": "http",
+      "url": "https://api.z.ai/api/mcp/zread/mcp",
+      "headers": {
+        "Authorization": "Bearer a03f134de60947f9b2dd6989918ddf5d.jzdxocwGVqBN5pf5"
+      }
+    }
+  }
+}
