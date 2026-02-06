@@ -8,6 +8,7 @@ const proxies = ref<Proxy[]>([])
 const loading = ref(false)
 const testingId = ref<number | null>(null)
 const rotating = ref(false)
+const deletingAll = ref(false)
 const error = ref<string | null>(null)
 const showBulkImport = ref(false)
 
@@ -64,6 +65,23 @@ async function rotate() {
     error.value = e?.response?.data?.message ?? e?.message ?? 'Failed to rotate proxy'
   } finally {
     rotating.value = false
+  }
+}
+
+async function deleteAll() {
+  const confirmed = confirm(`Delete all ${proxies.value.length} proxies? This cannot be undone.`)
+  if (!confirmed) return
+
+  deletingAll.value = true
+  error.value = null
+  try {
+    const result = await api.deleteAllProxies()
+    alert(result.message)
+    await fetchProxies()
+  } catch (e: any) {
+    error.value = e?.response?.data?.message ?? e?.message ?? 'Failed to delete proxies'
+  } finally {
+    deletingAll.value = false
   }
 }
 
