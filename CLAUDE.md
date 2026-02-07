@@ -115,10 +115,10 @@ See `.env.example` for required variables. Key ones:
 
 ### New: Add RATs via API
 ```bash
-# Add a custom RAT
+# Add a custom RAT (hash is auto-generated from components)
 curl -X POST http://localhost:3000/api/rats \
   -H "Content-Type: application/json" \
-  -d '{"hash":"your-rat-hash","components":{...}}'
+  -d '{"components":{...}}'
 ```
 
 ## Database Schema
@@ -140,10 +140,11 @@ The Prisma client is generated to `node_modules/.prisma/client` and supports bot
 - Query params: `page` (default: 1), `limit` (default: 50), `status` (ACTIVE|DEAD)
 - Returns: `{ rats: CustomRat[], total: number, page: number, limit: number }`
 
-**POST /api/rats** - Add new RAT
-- Body: `{ hash: string, components: object }`
-- Returns: Created `CustomRat` object
-- Error 409: Hash already exists
+**POST /api/rats** - Add new RAT (hash auto-generated)
+- Body: `{ components: object }`
+- Returns: Created or updated `CustomRat` object
+- Hash format: 64-character SHA256 hex
+- Idempotent: Same components update existing RAT
 
 **PUT /api/rats/:id** - Update RAT status
 - Body: `{ status: "ACTIVE" | "DEAD" }`
