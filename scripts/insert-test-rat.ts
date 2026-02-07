@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { createHash } from 'crypto';
+import { generateRatHash } from '../utils/generateRatHash';
 
 async function insertTestRat() {
   const prisma = new PrismaClient();
@@ -17,10 +17,7 @@ async function insertTestRat() {
       fonts: { value: ['Arial', 'Times New Roman', 'Courier New'] }
     };
 
-    const hash = createHash('sha256')
-      .update(JSON.stringify(testComponents))
-      .digest('hex')
-      .substring(0, 16);
+    const hash = generateRatHash(testComponents);
 
     console.log('[Test RAT] Inserting test RAT with hash:', hash);
 
