@@ -1,9 +1,11 @@
+// core/interface/http/express/server.ts
 import { buildContainer } from './container'
 import { createHttpServer } from './infrastructure/http/express'
 import { WebSocketServer } from 'ws'
 import { asValue } from 'awilix'
 import path from 'path'
 import fs from 'fs'
+import { CustomRatSelector } from './application/services/CustomRatSelector'
 
 async function bootstrap() {
   // Log DB location to help diagnose missing tables in packaged builds
@@ -18,6 +20,19 @@ async function bootstrap() {
   }
 
   const container = await buildContainer()
+
+  // Validate at least one active RAT exists
+  const customRatSelector = container.resolve<CustomRatSelector>('customRatSelector')
+  const hasActiveRats = await customRatSelector.checkAnyActiveRats()
+
+  if (!hasActiveRats) {
+    console.error('[Startup] No active RATs found in database.')
+    console.error('[Startup] Please add at least one RAT using: POST /api/rats')
+    console.error('[Startup] Example: curl -X POST http://localhost:3000/api/rats -H "Content-Type: application/json" -d \'{"hash":"your-hash","components":{}}\'')
+    process.exit(1)
+  }
+
+  console.log('[Startup] Custom RAT system initialized with active RATs')
 
   const app = createHttpServer(container) // inject use cases, controllers
   const port = process.env.PORT || 3000
