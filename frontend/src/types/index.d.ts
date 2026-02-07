@@ -56,3 +56,13 @@ export interface Proxy {
   status: 'ACTIVE' | 'INACTIVE';
   country?: string | null;
 }
+
+export interface CustomRat {
+  id: number;
+  hash: string;
+  components: Record<string, any>;
+  status: 'ACTIVE' | 'DEAD';
+  failureCount: number;
+  createdAt: string;
+  updatedAt: string;
+}

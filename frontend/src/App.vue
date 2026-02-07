@@ -10,6 +10,7 @@ import { RouterLink, RouterView } from 'vue-router'
         <nav class="flex items-center gap-3 text-sm">
           <RouterLink to="/" class="text-muted-foreground hover:text-foreground">Credentials</RouterLink>
           <RouterLink to="/proxies" class="text-muted-foreground hover:text-foreground">Proxies</RouterLink>
+          <RouterLink to="/rats" class="text-muted-foreground hover:text-foreground">RATs</RouterLink>
           <RouterLink to="/settings" class="text-muted-foreground hover:text-foreground">Settings</RouterLink>
         </nav>
       </div>
