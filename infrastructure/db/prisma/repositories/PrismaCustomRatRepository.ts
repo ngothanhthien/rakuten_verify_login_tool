@@ -1,9 +1,8 @@
-import { ICustomRatRepository, CustomRat, CustomRatListFilters } from '../../../core/repositories/ICustomRatRepository';
-import { PrismaClient } from '@prisma/client';
+import { ICustomRatRepository, CustomRat, CustomRatListFilters } from '../../../../core/repositories/ICustomRatRepository';
+import { prisma } from '../prismaClient';
 import { CustomRat as PrismaCustomRat } from '@prisma/client';
 
 export default class PrismaCustomRatRepository implements ICustomRatRepository {
-  constructor(private prisma: PrismaClient) {}
 
   private toDomain(prismaRat: PrismaCustomRat): CustomRat {
     return {
@@ -18,7 +17,7 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
   }
 
   async getActiveRats(): Promise<CustomRat[]> {
-    const rats = await this.prisma.customRat.findMany({
+    const rats = await prisma.customRat.findMany({
       where: { status: 'ACTIVE' },
       orderBy: { id: 'asc' }
     });
@@ -26,21 +25,21 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
   }
 
   async findByHash(hash: string): Promise<CustomRat | null> {
-    const rat = await this.prisma.customRat.findUnique({
+    const rat = await prisma.customRat.findUnique({
       where: { hash }
     });
     return rat ? this.toDomain(rat) : null;
   }
 
   async getById(id: number): Promise<CustomRat | null> {
-    const rat = await this.prisma.customRat.findUnique({
+    const rat = await prisma.customRat.findUnique({
       where: { id }
     });
     return rat ? this.toDomain(rat) : null;
   }
 
   async incrementFailureCount(id: number): Promise<CustomRat> {
-    const rat = await this.prisma.customRat.update({
+    const rat = await prisma.customRat.update({
       where: { id },
       data: { failureCount: { increment: 1 } }
     });
@@ -48,7 +47,7 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
   }
 
   async markAsDead(id: number): Promise<CustomRat> {
-    const rat = await this.prisma.customRat.update({
+    const rat = await prisma.customRat.update({
       where: { id },
       data: { status: 'DEAD' }
     });
@@ -57,7 +56,7 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
 
   async markAsDeadByHash(hash: string): Promise<CustomRat | null> {
     try {
-      const rat = await this.prisma.customRat.update({
+      const rat = await prisma.customRat.update({
         where: { hash },
         data: { status: 'DEAD' }
       });
@@ -68,14 +67,14 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
   }
 
   async resetFailureCount(hash: string): Promise<void> {
-    await this.prisma.customRat.update({
+    await prisma.customRat.update({
       where: { hash },
       data: { failureCount: 0 }
     });
   }
 
   async reactivateRat(id: number): Promise<CustomRat> {
-    const rat = await this.prisma.customRat.update({
+    const rat = await prisma.customRat.update({
       where: { id },
       data: { status: 'ACTIVE', failureCount: 0 }
     });
@@ -83,7 +82,7 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
   }
 
   async add(data: Omit<CustomRat, 'id' | 'createdAt' | 'updatedAt'>): Promise<CustomRat> {
-    const rat = await this.prisma.customRat.create({
+    const rat = await prisma.customRat.create({
       data: {
         hash: data.hash,
         components: JSON.stringify(data.components),
@@ -102,13 +101,13 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
     const where = filters?.status ? { status: filters.status } : {};
 
     const [rats, total] = await Promise.all([
-      this.prisma.customRat.findMany({
+      prisma.customRat.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' }
       }),
-      this.prisma.customRat.count({ where })
+      prisma.customRat.count({ where })
     ]);
 
     return {
@@ -118,13 +117,13 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
   }
 
   async delete(id: number): Promise<void> {
-    await this.prisma.customRat.delete({
+    await prisma.customRat.delete({
       where: { id }
     });
   }
 
   async updateStatus(id: number, status: 'ACTIVE' | 'DEAD'): Promise<CustomRat> {
-    const rat = await this.prisma.customRat.update({
+    const rat = await prisma.customRat.update({
       where: { id },
       data: { status }
     });
