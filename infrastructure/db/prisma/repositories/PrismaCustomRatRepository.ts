@@ -2,7 +2,7 @@ import { ICustomRatRepository, CustomRat, CustomRatListFilters } from '../../../
 import { PrismaClient } from '@prisma/client';
 import { CustomRat as PrismaCustomRat } from '@prisma/client';
 
-export class PrismaCustomRatRepository implements ICustomRatRepository {
+export default class PrismaCustomRatRepository implements ICustomRatRepository {
   constructor(private prisma: PrismaClient) {}
 
   private toDomain(prismaRat: PrismaCustomRat): CustomRat {

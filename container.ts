@@ -2,6 +2,7 @@ import { asClass, asValue, createContainer, InjectionMode } from 'awilix'
 import PrismaCredentialRepository from './infrastructure/db/prisma/repositories/PrismaCredentialRepository'
 import PrismaSettingRepository from './infrastructure/db/prisma/repositories/PrismaSettingRepository'
 import PrismaProxyRepository from './infrastructure/db/prisma/repositories/PrismaProxyRepository'
+import PrismaCustomRatRepository from './infrastructure/db/prisma/repositories/PrismaCustomRatRepository'
 import TelegramNotifier from './infrastructure/notifier/TelegramNotifier'
 import FileCredentialImportSource from './infrastructure/CredentialImportSource/FileCredentialImportSource'
 import PlaywrightVerify from './infrastructure/verifier/PlaywrightVerify'
@@ -43,6 +44,7 @@ export async function buildContainer() {
     credentialRepository: asClass(PrismaCredentialRepository).scoped(),
     settingRepository: asClass(PrismaSettingRepository).scoped(),
     proxyRepository: asClass(PrismaProxyRepository).scoped(),
+    customRatRepository: asClass(PrismaCustomRatRepository).scoped(),
     credentialSource: asClass(FileCredentialImportSource).scoped(),
     verifyService: asClass(PlaywrightVerify).scoped(),
     uiNotifier: asClass(TelegramNotifier).scoped(),
