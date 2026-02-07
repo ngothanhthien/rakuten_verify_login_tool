@@ -4,6 +4,7 @@ import { makeClassInvoker } from 'awilix-express'
 import CredentialController from './CredentialController'
 import SettingController from './SettingController'
 import ProxyController from './ProxyController'
+import CustomRatController from './controllers/CustomRatController'
 import multer from 'multer'
 
 export function registerRoutes(app: Express) {
@@ -12,6 +13,7 @@ export function registerRoutes(app: Express) {
   const api = makeClassInvoker(CredentialController)
   const settingsApi = makeClassInvoker(SettingController)
   const proxiesApi = makeClassInvoker(ProxyController)
+  const customRatApi = makeClassInvoker(CustomRatController)
   const upload = multer({ storage: multer.memoryStorage() })
 
   router.post('/credentials/import', upload.single('file'), api('import'))
@@ -35,6 +37,12 @@ export function registerRoutes(app: Express) {
   router.post('/proxies/test', proxiesApi('test'))
   router.post('/proxies/bulk-import', proxiesApi('bulkImport'))
   router.post('/proxies/delete-all', proxiesApi('deleteAll'))
+
+  // Custom RAT management
+  router.get('/rats', customRatApi('listRats'))
+  router.post('/rats', customRatApi('addRat'))
+  router.put('/rats/:id', customRatApi('updateRatStatus'))
+  router.delete('/rats/:id', customRatApi('deleteRat'))
 
   app.use('/api', router)
 }

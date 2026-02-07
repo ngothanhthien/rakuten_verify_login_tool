@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ICustomRatRepository } from '../../../core/repositories/ICustomRatRepository';
 import { CustomRat } from '../../../core/repositories/ICustomRatRepository';
 
-export class CustomRatController {
+export default class CustomRatController {
   constructor(private customRatRepository: ICustomRatRepository) {}
 
   async listRats(req: Request, res: Response): Promise<void> {
