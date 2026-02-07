@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ICustomRatRepository } from '../../../core/repositories/ICustomRatRepository';
 import { CustomRat } from '../../../core/repositories/ICustomRatRepository';
+import { generateRatHash } from '../../../utils/generateRatHash';
 
 export default class CustomRatController {
   constructor(private customRatRepository: ICustomRatRepository) {}
@@ -26,30 +27,32 @@ export default class CustomRatController {
 
   async addRat(req: Request, res: Response): Promise<void> {
     try {
-      const { hash, components } = req.body;
+      const { components } = req.body;
 
-      if (!hash || !components) {
-        res.status(400).json({ error: 'hash and components are required' });
+      if (!components) {
+        res.status(400).json({ error: 'components are required' });
         return;
       }
 
-      // Check for duplicate
-      const existing = await this.customRatRepository.findByHash(hash);
-      if (existing) {
-        res.status(409).json({ error: 'RAT with this hash already exists' });
+      // Validate payload size (100KB limit)
+      const MAX_COMPONENTS_SIZE = 100_000;
+      const componentsJson = JSON.stringify(components);
+      if (componentsJson.length > MAX_COMPONENTS_SIZE) {
+        res.status(413).json({
+          error: `components too large (max ${MAX_COMPONENTS_SIZE} bytes)`
+        });
         return;
       }
 
-      const newRat = await this.customRatRepository.add({
-        hash,
-        components,
-        status: 'ACTIVE',
-        failureCount: 0
-      });
+      // Auto-generate hash from components
+      const hash = generateRatHash(components);
 
-      res.status(201).json(newRat);
+      // Use upsert for idempotent behavior
+      const rat = await this.customRatRepository.upsert(hash, components);
+
+      res.status(200).json(rat);
     } catch (error) {
-      console.error('[CustomRatController] Error adding RAT:', error);
+      console.error('[CustomRatController] Failed to add RAT:', error);
       res.status(500).json({ error: 'Failed to add RAT' });
     }
   }
