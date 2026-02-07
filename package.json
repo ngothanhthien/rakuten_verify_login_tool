@@ -18,6 +18,7 @@
     "prisma:seed": "prisma db seed --schema=./infrastructure/db/prisma/schema.prisma",
     "prisma:studio": "prisma studio --schema=./infrastructure/db/prisma/schema.prisma",
     "postinstall": "npm run prisma:generate",
+    "migrate-rat": "tsx scripts/migrate-rat-from-gist.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {
