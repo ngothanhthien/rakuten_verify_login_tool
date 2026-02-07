@@ -91,7 +91,7 @@ rakuten/
 
 **Verification Service**: PlaywrightVerify uses Patchright (Playwright fork) to automate browser interactions for credential verification.
 
-**Custom RAT**: A custom Rakuten Account Transfer (RAT) hash is loaded from a remote Gist at startup (see `container.ts`) to override GPU fingerprinting detection via `utils/ratOverride.ts`.
+**Custom RAT System**: The application now stores multiple custom RATs (Rakuten Account Transfer hashes) in the database for GPU fingerprinting override. RATs are managed via HTTP API (`/api/rats`) and automatically rotated using round-robin. Each worker fetches a fresh RAT per request. The system tracks consecutive 400 errors and marks RATs as DEAD after 3 failures. Failure counters reset on any success (200, 401, 403, etc.). Application exits on startup if no active RATs exist.
 
 **WebSocket**: Real-time updates are pushed to connected frontend clients via WebSocket server created in `main.ts`.
 
@@ -110,6 +110,17 @@ See `.env.example` for required variables. Key ones:
 - `PORT` - HTTP server port (default: 3000)
 - `AUTOMATE_DEBUG` - Enable debug mode (reduces concurrency to 1)
 
+### Custom RAT System (DEPRECATED)
+- `CUSTOM_RAT_GIST_URL` - **DEPRECATED**. Previously used to fetch single RAT from GIST. Use `POST /api/rats` endpoint instead.
+
+### New: Add RATs via API
+```bash
+# Add a custom RAT
+curl -X POST http://localhost:3000/api/rats \
+  -H "Content-Type: application/json" \
+  -d '{"hash":"your-rat-hash","components":{...}}'
+```
+
 ## Database Schema
 
 **Prisma with SQLite** - Schema defined in `infrastructure/db/prisma/schema.prisma`:
@@ -117,5 +128,26 @@ See `.env.example` for required variables. Key ones:
 - `Credential` - id, email, password, status, checkedAt, processingBy, claimedAt
 - `Setting` - key, name, value, type, group (application settings)
 - `Proxy` - server, username, password, status, country (proxy pool)
+- `CustomRat` - id, hash, components, status, failureCount (custom RAT storage)
 
 The Prisma client is generated to `node_modules/.prisma/client` and supports both native and Windows binary targets.
+
+## Custom RAT API
+
+### Management Endpoints
+
+**GET /api/rats** - List all RATs
+- Query params: `page` (default: 1), `limit` (default: 50), `status` (ACTIVE|DEAD)
+- Returns: `{ rats: CustomRat[], total: number, page: number, limit: number }`
+
+**POST /api/rats** - Add new RAT
+- Body: `{ hash: string, components: object }`
+- Returns: Created `CustomRat` object
+- Error 409: Hash already exists
+
+**PUT /api/rats/:id** - Update RAT status
+- Body: `{ status: "ACTIVE" | "DEAD" }`
+- Setting to ACTIVE resets failureCount to 0
+
+**DELETE /api/rats/:id** - Remove RAT
+- Returns: `{ success: true }`
