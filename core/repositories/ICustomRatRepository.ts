@@ -1,4 +1,5 @@
 import { CustomRat as PrismaCustomRat } from '@prisma/client';
+import { RatComponents } from '../../utils/ratOverride';
 
 export interface CustomRat {
   id: number;
@@ -29,4 +30,5 @@ export interface ICustomRatRepository {
   getAll(filters?: CustomRatListFilters): Promise<{ rats: CustomRat[]; total: number }>;
   delete(id: number): Promise<void>;
   updateStatus(id: number, status: 'ACTIVE' | 'DEAD'): Promise<CustomRat>;
+  upsert(hash: string, components: RatComponents): Promise<CustomRat>;
 }
