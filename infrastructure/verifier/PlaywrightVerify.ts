@@ -11,6 +11,7 @@ import * as path from "path";
 import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
 import { WorkerContext } from "../../core/value-objects/WorkerContext";
 import { getNextProxy, rotateProxyIndex } from "../../core/value-objects/WorkerProxyAssignment";
+import { CustomRatSelector } from '../../application/services/CustomRatSelector';
 
 const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?r10_required_claims=r10_name&r10_audience=rae&r10_guest_login=true&r10_jid_service_id=rm001&scope=openid+memberinfo_read_safebulk+memberinfo_read_point+memberinfo_get_card_token+1Hour%40Access+90days%40Refresh&response_type=code&redirect_uri=https%3A%2F%2Fportal.mobile.rakuten.co.jp%2Fauth%2Fcallback&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin&client_id=rmn_app_web#/sign_in';
 
@@ -23,8 +24,8 @@ export default class PlaywrightVerify implements IVerifyService {
   // Default device type - change this to switch between devices
   private deviceType: IPhoneDevice = 'iphone-13';
 
-  // Custom RAT for fingerprint override (injected from wire layer)
-  private customRat: CustomRat | null;
+  // Custom RAT for fingerprint override (loaded per request)
+  private customRat?: any;  // Will be loaded per request
 
   // Map URL patterns to local file names
   private readonly localJsMap = new Map<string, string>([
@@ -38,13 +39,8 @@ export default class PlaywrightVerify implements IVerifyService {
   constructor(
     private readonly proxyRepository: IProxyRepository,
     private customRatRepository: ICustomRatRepository,
-    customRat: CustomRat | null
-  ) {
-    this.customRat = customRat;
-    if (customRat) {
-      console.log('[PlaywrightVerify] Custom RAT injected:', customRat.hash);
-    }
-  }
+    private customRatSelector: CustomRatSelector
+  ) {}
 
   /**
    * Set the iPhone device type for GPU spoofing
@@ -57,27 +53,25 @@ export default class PlaywrightVerify implements IVerifyService {
   }
 
   /**
-   * Set a custom RAT (fingerprint) to override the browser fingerprint
-   * Call this before verify() to use your own fingerprint
-   */
-  public setCustomRat(customRat: CustomRat): void {
-    this.customRat = customRat;
-    console.log('[RatOverride] Custom RAT set:', customRat.hash);
-  }
-
-  /**
-   * Clear custom RAT and use real browser fingerprint
-   */
-  public clearCustomRat(): void {
-    this.customRat = null;
-    console.log('[RatOverride] Custom RAT cleared');
-  }
-
-  /**
    * Get the assets directory path (works in both dev and bundled environments)
    */
   private getAssetsPath(): string {
     return path.join(process.cwd(), 'assets', 'js');
+  }
+
+  /**
+   * Load a fresh RAT for each verification request using round-robin rotation
+   */
+  private async loadCustomRatForRequest(): Promise<any> {
+    try {
+      return await this.customRatSelector.getNextRat();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('No active RATs')) {
+        console.error('[PlaywrightVerify] All RATs are DEAD. Cannot continue verification.');
+        throw error;
+      }
+      return null;
+    }
   }
 
   /**
@@ -146,6 +140,9 @@ export default class PlaywrightVerify implements IVerifyService {
     if (credential.password.length < 8) {
       return false;
     }
+
+    // Load fresh RAT for this request
+    this.customRat = await this.loadCustomRatForRequest();
 
     const isDebug = process.env.AUTOMATE_DEBUG === 'true'
 
