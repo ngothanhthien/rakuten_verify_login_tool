@@ -3,6 +3,7 @@ import type { Pagination, CredentialStatistics } from '../types'
 import type { Credential } from '../types'
 import type { Setting } from '../types'
 import type { Proxy } from '../types'
+import type { CustomRat } from '../types'
 
 export async function importCredentials(file: File) {
   const formData = new FormData()
@@ -130,6 +131,26 @@ export async function bulkImportProxies(proxies: string): Promise<{
 export async function deleteAllProxies(): Promise<{ message: string; count: number }> {
   const response = await createAxios().post('/api/proxies/delete-all')
   return response.data
+}
+
+export async function listRats(status?: 'ACTIVE' | 'DEAD'): Promise<CustomRat[]> {
+  const response = await createAxios().get('/api/rats', { params: { status } })
+  return response.data.rats as CustomRat[]
+}
+
+export async function addRat(components: Record<string, any>): Promise<CustomRat> {
+  const response = await createAxios().post('/api/rats', { components })
+  return response.data as CustomRat
+}
+
+export async function updateRatStatus(id: number, status: 'ACTIVE' | 'DEAD'): Promise<CustomRat> {
+  const response = await createAxios().put(`/api/rats/${id}`, { status })
+  return response.data as CustomRat
+}
+
+export async function deleteRat(id: number): Promise<{ success: boolean }> {
+  const response = await createAxios().delete(`/api/rats/${id}`)
+  return response.data as { success: boolean }
 }
 
 function createAxios(headers?: Record<string, string>) {
