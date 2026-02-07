@@ -1,4 +1,4 @@
-import { PrismaClient } from '../infrastructure/db/prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { fetchGistAsCustomRat } from '../utils';
 
 const CUSTOM_RAT_GIST_URL = process.env.CUSTOM_RAT_GIST_URL || '';
@@ -7,6 +7,14 @@ async function migrate() {
   const prisma = new PrismaClient();
 
   try {
+    if (!CUSTOM_RAT_GIST_URL) {
+      console.log('[Migration] No CUSTOM_RAT_GIST_URL found in .env');
+      console.log('[Migration] Skipping migration.');
+      console.log('[Migration] You can add a RAT via the API POST /api/rats');
+      await prisma.$disconnect();
+      return;
+    }
+
     console.log('[Migration] Fetching RAT from GIST...');
     const oldRat = await fetchGistAsCustomRat(CUSTOM_RAT_GIST_URL);
 

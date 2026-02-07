@@ -160,6 +160,26 @@ export function randomString(length: number = 6): string {
 }
 
 /**
+ * Replace 6 characters at a random mid-position with random string
+ * @param str - Input string to modify
+ * @returns Modified string with 6 chars replaced
+ */
+function replaceMidRandom(str: string): string {
+  if (str.length < 6) return str;
+
+  if (str.length >= 26) {
+    // Safe range: skip first 10, skip last 10
+    const maxStart = str.length - 16;
+    const startIdx = 10 + Math.floor(Math.random() * (maxStart - 10));
+    return str.slice(0, startIdx) + randomString() + str.slice(startIdx + 6);
+  } else {
+    // Shorter string: replace from middle
+    const startIdx = Math.floor((str.length - 6) / 2);
+    return str.slice(0, startIdx) + randomString() + str.slice(startIdx + 6);
+  }
+}
+
+/**
  * Generate GPU spoofing script for Playwright
  * @param device - iPhone device type or 'custom' with custom spec
  * @param customSpec - Custom GPU spec (only used when device='custom')
@@ -174,12 +194,9 @@ export function createGPUSpoofScript(
     throw new Error(`Unknown device: ${device}`);
   }
 
-  // Replace "Bionic" with random string in renderer
-  if (spec.renderer.includes('Bionic')) {
-    spec = {
-      ...spec,
-      renderer: spec.renderer.replace('Bionic', randomString())
-    };
+  // Replace 6 chars at random mid-position with random string
+  if (spec.renderer) {
+    spec = { ...spec, renderer: replaceMidRandom(spec.renderer) };
   }
 
   return `
