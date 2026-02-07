@@ -3,6 +3,7 @@ export async function sleep(ms: number) {
 }
 
 export * from './gpuSpoof';
+export * from './generateRatHash';
 export * from './ratOverride';
 
 export async function fetchGist<T = unknown>(gistUrl: string): Promise<T> {
