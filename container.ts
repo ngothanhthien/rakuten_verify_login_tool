@@ -12,10 +12,8 @@ import CredentialController from './infrastructure/http/CredentialController'
 import SettingService from './application/services/SettingService'
 import SettingController from './infrastructure/http/SettingController'
 import ProxyController from './infrastructure/http/ProxyController'
-import { fetchGistAsCustomRat } from './utils'
-import type { CustomRat } from './utils/ratOverride'
-
-const CUSTOM_RAT_GIST_URL = 'https://gist.githubusercontent.com/ngothanhthien/8a5052719043523b9f1061a2a2be8697/raw'
+import { CustomRatSelector } from './application/services/CustomRatSelector'
+import CustomRatController from './infrastructure/http/controllers/CustomRatController'
 
 export async function buildContainer() {
   const container = createContainer({
@@ -23,15 +21,6 @@ export async function buildContainer() {
   })
 
   const isDebug = process.env.AUTOMATE_DEBUG === 'true'
-
-  // Load custom RAT once at startup (wire layer)
-  let customRat: CustomRat | null = null
-  try {
-    customRat = await fetchGistAsCustomRat(CUSTOM_RAT_GIST_URL + '?v=' + Date.now())
-    console.log('[WireLayer] Custom RAT loaded from gist:', customRat.hash)
-  } catch (error) {
-    console.error('[WireLayer] Failed to load custom RAT from gist:', error)
-  }
 
   const runnerConfig: CredentialCheckRunnerConfig = {
     concurrency: isDebug ? 1 : 40,
@@ -49,10 +38,8 @@ export async function buildContainer() {
     verifyService: asClass(PlaywrightVerify).scoped(),
     uiNotifier: asClass(TelegramNotifier).scoped(),
 
-    // Register custom RAT as singleton value (loaded once at startup)
-    customRat: asValue(customRat),
-
     settingService: asClass(SettingService).singleton(),
+    customRatSelector: asClass(CustomRatSelector).singleton(),
 
     bulkImportProxies: asClass(BulkImportProxies).scoped(),
 
@@ -66,6 +53,7 @@ export async function buildContainer() {
     credentialController: asClass(CredentialController).scoped(),
     settingController: asClass(SettingController).scoped(),
     proxyController: asClass(ProxyController).scoped(),
+    customRatController: asClass(CustomRatController).scoped(),
   })
 
   console.log('CredentialCheckRunner configured with:', runnerConfig)
