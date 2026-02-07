@@ -5,6 +5,7 @@ import UserAgent from "user-agents"
 import { sleep, IPhoneDevice, createGPUSpoofScript } from "../../utils";
 import { Page, devices, Route } from "patchright";
 import IProxyRepository from "../../core/repositories/IProxyRepository";
+import { ICustomRatRepository } from "../../core/repositories/ICustomRatRepository";
 import * as fs from "fs";
 import * as path from "path";
 import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
@@ -31,8 +32,12 @@ export default class PlaywrightVerify implements IVerifyService {
     ['/widget/js/UzBsVExITjBkWEJwWkNF-2.27.2.min.js', 'UzBsVExITjBkWEJwWkNF-2.27.2.min.js'],
   ]);
 
+  // Track consecutive 400 errors per RAT hash
+  private ratFailureMap = new Map<string, number>();
+
   constructor(
     private readonly proxyRepository: IProxyRepository,
+    private customRatRepository: ICustomRatRepository,
     customRat: CustomRat | null
   ) {
     this.customRat = customRat;
@@ -73,6 +78,31 @@ export default class PlaywrightVerify implements IVerifyService {
    */
   private getAssetsPath(): string {
     return path.join(process.cwd(), 'assets', 'js');
+  }
+
+  /**
+   * Handle RAT failure by incrementing failure count and marking DEAD after 3 consecutive 400s
+   */
+  private async handleRatFailure(ratHash: string): Promise<void> {
+    const currentCount = this.ratFailureMap.get(ratHash) || 0;
+    const newCount = currentCount + 1;
+    this.ratFailureMap.set(ratHash, newCount);
+
+    if (newCount >= 3) {
+      await this.customRatRepository.markAsDeadByHash(ratHash);
+      console.error(`[PlaywrightVerify] RAT ${ratHash} marked DEAD after 3 consecutive 400s`);
+      this.ratFailureMap.delete(ratHash);
+    }
+  }
+
+  /**
+   * Handle RAT success by resetting failure counter
+   */
+  private async handleRatSuccess(ratHash: string): Promise<void> {
+    if (this.ratFailureMap.has(ratHash)) {
+      await this.customRatRepository.resetFailureCount(ratHash);
+      this.ratFailureMap.delete(ratHash);
+    }
   }
 
   /**
@@ -164,24 +194,24 @@ export default class PlaywrightVerify implements IVerifyService {
     const page = await browserContext.newPage();
 
     // Inject RatOverride if custom RAT is set
-    // if (this.customRat) {
-    //   const ratOverrideScript = createRatOverrideScript(this.customRat);
-    //   await page.addInitScript(ratOverrideScript);
-    //   console.log('[RatOverride] Script injected with custom RAT:', this.customRat.hash);
-    // }
+    if (this.customRat) {
+      const ratOverrideScript = createRatOverrideScript(this.customRat);
+      await page.addInitScript(ratOverrideScript);
+      console.log('[RatOverride] Script injected with custom RAT:', this.customRat.hash);
+    }
 
     // Enable local JS file routing for specific files
     await page.route('**/*.js', (route) => this.handleLocalJs(route));
 
     // Apply GPU spoofing based on device type
-    await this.applyGPUSpoofing(page);
+    // await this.applyGPUSpoofing(page);
 
     const client = await browserContext.newCDPSession(page);
 
     await client.send('Emulation.setUserAgentOverride', {
       userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
       platform: "iPhone",
-      acceptLanguage: "en-US",
+      acceptLanguage: "ja-JP",
       userAgentMetadata: {
         mobile: true,
         platform: "iOS",
@@ -205,11 +235,11 @@ export default class PlaywrightVerify implements IVerifyService {
     });
 
 
-    // if (isDebug) {
-    //   await page.goto(LOGIN_URL);
+    if (isDebug) {
+      await page.goto(LOGIN_URL);
 
-    //   await sleep(1000000000)
-    // }
+      await sleep(1000000000)
+    }
 
     try {
       // Retry flow for /v2/login/start 400 errors
@@ -234,10 +264,19 @@ export default class PlaywrightVerify implements IVerifyService {
 
         const loginStartResponse = await loginStartPromise;
         if (loginStartResponse.status() === 400) {
+          const ratHash = this.customRat?.hash;
+          if (ratHash) {
+            await this.handleRatFailure(ratHash);
+          }
           console.log(`[Login Start] Got 400, retrying... (Attempt ${attempt + 1}/${maxRetries})`);
           await page.reload();
           await page.waitForLoadState('networkidle');
           continue;
+        } else if (loginStartResponse.status() >= 200 && loginStartResponse.status() < 500) {
+          const ratHash = this.customRat?.hash;
+          if (ratHash) {
+            await this.handleRatSuccess(ratHash);
+          }
         }
 
         loginStartSuccess = true;
@@ -270,6 +309,18 @@ export default class PlaywrightVerify implements IVerifyService {
       await nextButton.click()
 
       const loginResponse = await loginResponsePromise
+      if (loginResponse.status() === 400) {
+        const ratHash = this.customRat?.hash;
+        if (ratHash) {
+          await this.handleRatFailure(ratHash);
+        }
+      } else if (loginResponse.status() >= 200 && loginResponse.status() < 500) {
+        const ratHash = this.customRat?.hash;
+        if (ratHash) {
+          await this.handleRatSuccess(ratHash);
+        }
+      }
+
       if (loginResponse.status() !== 200) {
         if (isDebug) {
           console.log('Login failed')
