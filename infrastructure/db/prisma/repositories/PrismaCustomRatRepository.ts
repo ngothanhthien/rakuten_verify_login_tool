@@ -1,6 +1,7 @@
 import { ICustomRatRepository, CustomRat, CustomRatListFilters } from '../../../../core/repositories/ICustomRatRepository';
 import { prisma } from '../prismaClient';
 import { CustomRat as PrismaCustomRat } from '@prisma/client';
+import { RatComponents } from '../../../../utils/ratOverride';
 
 export default class PrismaCustomRatRepository implements ICustomRatRepository {
 
@@ -128,5 +129,24 @@ export default class PrismaCustomRatRepository implements ICustomRatRepository {
       data: { status }
     });
     return this.toDomain(rat);
+  }
+
+  async upsert(hash: string, components: RatComponents): Promise<CustomRat> {
+    return await this.toDomain(
+      await prisma.customRat.upsert({
+        where: { hash },
+        update: {
+          components: JSON.stringify(components),
+          status: 'ACTIVE',
+          failureCount: 0
+        },
+        create: {
+          hash,
+          components: JSON.stringify(components),
+          status: 'ACTIVE',
+          failureCount: 0
+        }
+      })
+    );
   }
 }
