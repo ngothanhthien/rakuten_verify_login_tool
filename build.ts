@@ -25,7 +25,7 @@ async function main() {
   const pkg = await fs.readJson('package.json')
   const dependencies = Object.keys(pkg.dependencies || {})
   // These stay as real node_modules because they rely on native/runtime assets
-  const runtimeExternals = ['@prisma/client', 'patchright', 'patchright-core', 'prisma']
+  const runtimeExternals = ['@prisma/client', 'patchright', 'patchright-core', 'prisma', 'geoip-lite']
   const bundledDeps = dependencies.filter((dep) => !runtimeExternals.includes(dep))
 
   console.log('🧹 Cleaning dist directory...')
@@ -57,6 +57,8 @@ async function main() {
   await copyPrismaAssets(distDir)
   await copyPrismaMigrations(distDir)
   await copyRuntimeNodeModules(distDir, runtimeExternals)
+  await regeneratePrismaClient(distDir)
+  await runMigrations(distDir)
   await createStartScripts(distDir)
 
   if (options.zip) {
@@ -73,6 +75,18 @@ async function copyFrontend(distDir: string) {
     throw new Error('frontend-dist not found. Run "npm run build:frontend" first.')
   }
   await fs.copy(frontendPath, path.join(distDir, 'frontend-dist'))
+}
+
+async function copyGeoipData(distDir: string) {
+  console.log('🌍 Copying geoip-lite data files...')
+  const geoipDataSource = path.join(process.cwd(), 'node_modules/geoip-lite/data')
+  if (!(await fs.pathExists(geoipDataSource))) {
+    console.warn('⚠️  geoip-lite data directory not found, skipping.')
+    return
+  }
+  const geoipDataTarget = path.join(distDir, 'data')
+  await fs.ensureDir(geoipDataTarget)
+  await fs.copy(geoipDataSource, geoipDataTarget)
 }
 
 async function copyLocalScripts(distDir: string) {
@@ -96,17 +110,19 @@ async function copyEnvAndDatabase(distDir: string) {
   const envContent = [
     'DATABASE_URL="file:./dev.db"',
     'PORT=3000',
-    'CREDENTIAL_CHECK_CONCURRENCY=6',
-    'CREDENTIAL_CHECK_BATCH_SIZE=3',
-    'CREDENTIAL_CHECK_POLLING_INTERVAL_MS=1000',
-    'CREDENTIAL_CHECK_STALE_TIMEOUT_MINUTES=10',
     '',
   ].join('\n')
   await fs.writeFile(path.join(distDir, '.env'), envContent)
 
   const schemaPath = path.join(process.cwd(), 'infrastructure/db/prisma/schema.prisma')
   if (await fs.pathExists(schemaPath)) {
-    await fs.copy(schemaPath, path.join(distDir, 'schema.prisma'))
+    let schemaContent = await fs.readFile(schemaPath, 'utf-8')
+    // Fix output path for dist-windows
+    schemaContent = schemaContent.replace(
+      'output        = "../../../node_modules/.prisma/client"',
+      'output        = "./node_modules/.prisma/client"'
+    )
+    await fs.writeFile(path.join(distDir, 'schema.prisma'), schemaContent)
   }
 }
 
@@ -144,6 +160,48 @@ async function copyRuntimeNodeModules(distDir: string, moduleNames: string[]) {
       throw new Error(`Missing dependency ${mod} in node_modules. Install dependencies before packaging.`)
     }
     await fs.copy(source, path.join(targetNodeModules, mod))
+
+    // Also copy dependencies for geoip-lite
+    if (mod === 'geoip-lite') {
+      const geoipDeps = ['async', 'chalk', 'iconv-lite', 'ip-address', 'lazy', 'rimraf', 'yauzl']
+      for (const dep of geoipDeps) {
+        const depSource = path.join(nodeModulesRoot, dep)
+        if (!(await fs.pathExists(depSource))) {
+          throw new Error(`Missing geoip-lite dependency ${dep} in node_modules.`)
+        }
+        await fs.copy(depSource, path.join(targetNodeModules, dep))
+      }
+    }
+  }
+}
+
+async function regeneratePrismaClient(distDir: string) {
+  console.log('🔧 Regenerating Prisma client for dist-windows...')
+  const { spawnSync } = await import('node:child_process')
+  
+  const result = spawnSync('npx', ['prisma', 'generate', '--schema=dist-windows/schema.prisma'], {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: `file:./${path.basename(distDir)}/dev.db` }
+  })
+
+  if (result.status !== 0) {
+    throw new Error('Prisma client generation failed')
+  }
+}
+
+async function runMigrations(distDir: string) {
+  console.log('🔄 Running database migrations...')
+  const { spawnSync } = await import('node:child_process')
+  
+  const result = spawnSync('node', ['node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema=dist-windows/schema.prisma'], {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: `file:./${path.basename(distDir)}/dev.db` }
+  })
+
+  if (result.status !== 0) {
+    console.warn('⚠️  Migration failed - database may need manual setup')
   }
 }
 

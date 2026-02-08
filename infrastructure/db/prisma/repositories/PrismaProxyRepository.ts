@@ -144,35 +144,38 @@ export default class PrismaProxyRepository implements IProxyRepository {
       `;
       const totalProxies = Number(countResult[0].count);
 
-      // Edge case: fewer than 2 proxies means no workers
-      if (totalProxies < 2) {
+      // Edge case: fewer than 1 proxy
+      if (totalProxies < 1) {
         return new Map();
       }
 
-      // Calculate optimal worker count: MIN(totalProxies / 2, 40)
-      // Then distribute proxies evenly: proxiesPerWorker = CEIL(totalProxies / workerCount)
+      // ALWAYS run with max concurrency (40 workers), regardless of proxy count
+      // Each worker gets access to the FULL pool of active proxies
       const maxConcurrency = 40;
-      const workerCount = Math.min(Math.floor(totalProxies / 2), maxConcurrency);
-      const proxiesPerWorker = Math.ceil(totalProxies / workerCount);
-
-      // Fetch the proxies we need
-      const requiredProxies = workerCount * proxiesPerWorker;
+      const workerCount = maxConcurrency;
+      
+      // Fetch ALL active proxies for the pool
       const proxies = await tx.$queryRaw<any[]>`
         SELECT * FROM "Proxy"
         WHERE status = 'ACTIVE'
         ORDER BY id ASC
-        LIMIT ${requiredProxies}
       `;
 
-      // Distribute proxies evenly across workers
+      // Distribute FULL proxy list to EVERY worker (Pool Mode)
       const assignments = new Map();
-      for (let i = 0; i < workerCount; i++) {
-        const start = i * proxiesPerWorker;
-        const end = start + proxiesPerWorker;
-        const workerProxies = proxies.slice(start, end)
-          .map(p => this.toEntity(p));
+      const proxyEntities = proxies.map(p => this.toEntity(p));
 
-        assignments.set(`worker-${i + 1}`, createWorkerProxyAssignment(...workerProxies));
+      for (let i = 0; i < workerCount; i++) {
+        // Create assignment with ALL proxies
+        const assignment = createWorkerProxyAssignment(...proxyEntities);
+        
+        // Stagger the starting index so workers don't all hit the same proxy at once
+        // Worker 1 starts at 0, Worker 2 at 1, etc.
+        if (proxyEntities.length > 0) {
+            assignment.currentIndex = i % proxyEntities.length;
+        }
+        
+        assignments.set(`worker-${i + 1}`, assignment);
       }
 
       return assignments;

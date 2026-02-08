@@ -9,16 +9,20 @@ import { ICustomRatRepository } from "../../core/repositories/ICustomRatReposito
 import * as fs from "fs";
 import * as path from "path";
 import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
+import { extractDataUsage } from "../../utils/dataUsageExtractor";
 import { WorkerContext } from "../../core/value-objects/WorkerContext";
 import { getNextProxy, rotateProxyIndex } from "../../core/value-objects/WorkerProxyAssignment";
 import { CustomRatSelector } from '../../application/services/CustomRatSelector';
 
-const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?r10_required_claims=r10_name&r10_audience=rae&r10_guest_login=true&r10_jid_service_id=rm001&scope=openid+memberinfo_read_safebulk+memberinfo_read_point+memberinfo_get_card_token+1Hour%40Access+90days%40Refresh&response_type=code&redirect_uri=https%3A%2F%2Fportal.mobile.rakuten.co.jp%2Fauth%2Fcallback&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin&client_id=rmn_app_web#/sign_in';
+const LOGIN_URL = 'https://login.account.rakuten.com/sso/authorize?client_id=rmn_app_web&redirect_uri=https://portal.mobile.rakuten.co.jp/auth/callback&ui_locales=ja-JP&state=redirect_uri%3Dhttps%253A%252F%252Fportal.mobile.rakuten.co.jp%252Fdashboard%26operation%3Dlogin%26service_id%3Drm001&scope=openid%20memberinfo_read_safebulk%20memberinfo_read_point%20memberinfo_get_card_token%201Hour@Access%2090days@Refresh&response_type=code&r10_required_claims=r10_name&r10_jid_service_id=rm001&r10_guest_login=true#/sign_in';
 
 const TEST_ACCOUNT = {
-  email: 'Hoptacquangcao2004@gmail.com',
-  password: 'Tuan27022004aa'
+  email: 'rindontaptap17@gmail.com',
+  password: 'rindon17'
 }
+
+const MIN_DELAY_MS = 1000;
+const MAX_DELAY_MS = 3000;
 
 export default class PlaywrightVerify implements IVerifyService {
   // Default device type - change this to switch between devices
@@ -145,6 +149,7 @@ export default class PlaywrightVerify implements IVerifyService {
     this.customRat = await this.loadCustomRatForRequest();
 
     const isDebug = process.env.AUTOMATE_DEBUG === 'true'
+    const isStopForCheck =process.env.STOP_FOR_CHECK === 'true'
 
     const userAgentData = new UserAgent({
       deviceCategory: 'mobile',
@@ -153,31 +158,61 @@ export default class PlaywrightVerify implements IVerifyService {
 
     const assignment = context.proxyAssignment;
 
-    // Select current proxy based on index
-    const proxy = getNextProxy(assignment);
+    // Try each available proxy until one works or all fail
+    const maxAttempts = assignment.proxies.length;
+    let browser;
+    let proxy = null;
+    let launchSuccess = false;
 
-    if (!proxy) {
-      throw new Error(`Worker ${context.workerId}: No proxy available`);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Select current proxy based on index
+      proxy = getNextProxy(assignment);
+
+      if (!proxy) {
+        throw new Error(`Worker ${context.workerId}: No proxy available`);
+      }
+
+      try {
+        browser = await chromium.launch({
+          channel: "chrome",
+          headless: false,
+          args: [
+            '--no-sandbox',
+            '--disable-blink-features=AutomationControlled',
+            '--hide-scrollbars',
+            '--disable-infobars',
+            '--window-position=0,0',
+            '--ignore-certificate-errors',
+            '--disable-gpu-shader-disk-cache',
+          ],
+          proxy: {
+            server: proxy.server,
+            username: proxy.username ?? void 0,
+            password: proxy.password ?? void 0
+          }
+        });
+        launchSuccess = true;
+        break; // Success, exit the retry loop
+      } catch (error) {
+        console.error(`[PlaywrightVerify] Failed to launch browser with proxy ${proxy.server}:`, error);
+
+        // Mark proxy as DEAD since launch failed
+        await this.proxyRepository.markProxyDead(proxy.id);
+        console.error(`[PlaywrightVerify] Marked proxy ${proxy.server} (id: ${proxy.id}) as DEAD`);
+
+        // Rotate to next proxy in local assignment
+        rotateProxyIndex(assignment);
+
+        // If this was the last attempt, rethrow the error
+        if (attempt === maxAttempts - 1) {
+          throw new Error(`All ${maxAttempts} proxies failed during browser launch. Last error: ${error.message}`);
+        }
+      }
     }
 
-    const browser = await chromium.launch({
-      channel: "chrome",
-      headless: false,
-      args: [
-        '--no-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--hide-scrollbars',
-        '--disable-infobars',
-        '--window-position=0,0',
-        '--ignore-certificate-errors',
-        '--disable-gpu-shader-disk-cache',
-      ],
-      proxy: {
-        server: proxy.server,
-        username: proxy.username ?? void 0,
-        password: proxy.password ?? void 0
-      }
-    });
+    if (!launchSuccess || !browser) {
+      throw new Error(`Worker ${context.workerId}: Failed to launch browser with any proxy`);
+    }
 
     const browserContext = await browser.newContext({
       viewport: { width: 390, height: 844 },
@@ -232,7 +267,7 @@ export default class PlaywrightVerify implements IVerifyService {
     });
 
 
-    if (isDebug) {
+    if (isDebug && isStopForCheck) {
       await page.goto(LOGIN_URL);
 
       await sleep(1000000000)
@@ -245,9 +280,12 @@ export default class PlaywrightVerify implements IVerifyService {
 
       await page.goto(LOGIN_URL);
       await page.waitForLoadState('networkidle');
+      await this.randomDelay();
 
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         await page.locator('#user_id').fill(isDebug ? TEST_ACCOUNT.email : credential.email);
+        await this.randomDelay();
+
         const nextButton1 = await page.locator('[class*="button__submit"]').first();
         await nextButton1.waitFor({ state: 'visible', timeout: 5000 });
 
@@ -256,6 +294,7 @@ export default class PlaywrightVerify implements IVerifyService {
           response.url().includes('/v2/login/start')
         );
 
+        await this.randomDelay();
         await nextButton1.click();
         await page.waitForLoadState('networkidle');
 
@@ -268,6 +307,7 @@ export default class PlaywrightVerify implements IVerifyService {
           console.log(`[Login Start] Got 400, retrying... (Attempt ${attempt + 1}/${maxRetries})`);
           await page.reload();
           await page.waitForLoadState('networkidle');
+          await this.randomDelay();
           continue;
         } else if (loginStartResponse.status() >= 200 && loginStartResponse.status() < 500) {
           const ratHash = this.customRat?.hash;
@@ -290,9 +330,11 @@ export default class PlaywrightVerify implements IVerifyService {
       // }
 
       await page.waitForURL('**/sign_in/password');
+      await this.randomDelay();
+
       await page.locator('#password_current').fill(isDebug ? TEST_ACCOUNT.password : credential.password);
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(1000)
+      await this.randomDelay();
 
       const nextButton = await page.locator('[class*="button__submit"]').nth(1);
 
@@ -303,6 +345,7 @@ export default class PlaywrightVerify implements IVerifyService {
         response.request().method() === 'POST'
       );
 
+      await this.randomDelay();
       await nextButton.click()
 
       const loginResponse = await loginResponsePromise
@@ -311,20 +354,18 @@ export default class PlaywrightVerify implements IVerifyService {
         if (ratHash) {
           await this.handleRatFailure(ratHash);
         }
-      } else if (loginResponse.status() >= 200 && loginResponse.status() < 500) {
-        const ratHash = this.customRat?.hash;
-        if (ratHash) {
-          await this.handleRatSuccess(ratHash);
-        }
       }
 
       if (loginResponse.status() !== 200) {
-        if (isDebug) {
+        if (isDebug && isStopForCheck) {
           console.log('Login failed')
           await sleep(1000000000)
         }
         return false
       }
+
+      await page.waitForURL((url) => url.pathname === '/dashboard', { timeout: 30_000 });
+      console.log('success load dashboard')
 
       const isDataUsageBoxVisible = await this.checkDataUsageBox(page);
       if (!isDataUsageBoxVisible) {
@@ -338,15 +379,12 @@ export default class PlaywrightVerify implements IVerifyService {
       const isVerified = await this.checkDataUsageBox(page)
 
       if (isDebug) {
-        console.log('Verified')
+        console.log('Verify', isVerified)
         await sleep(1000000000)
       }
 
       return isVerified
     } catch (e) {
-      // Mark proxy as dead on error
-      await this.proxyRepository.markProxyDead(proxy.id);
-      console.error(e)
       return false;
     } finally {
       await browserContext.close();
@@ -387,24 +425,23 @@ export default class PlaywrightVerify implements IVerifyService {
    * and handle it by clicking the Continue button
    */
   private async handleAlreadySignedInPage(page: Page): Promise<boolean> {
-    try {
-      const alreadySignedInText = page.getByText('You are already signed in');
-      const isVisible = await alreadySignedInText.isVisible().catch(() => false);
+    const continueButton = page.locator('#prim_81').first();
+    if (!(await continueButton.isVisible().catch(() => false))) return false
+    await continueButton.click();
+    await page.waitForLoadState('networkidle')
+    return true;
+  }
 
-      if (isVisible) {
-        console.log('Detected "You are already signed in" page, clicking Continue button...');
-        const continueButton = page.locator('#prim_81', { hasText: 'Continue' });
-        await continueButton.waitFor({ state: 'visible', timeout: 5000 });
-        await continueButton.click();
-        await page.waitForLoadState('networkidle');
-        console.log('Continue button clicked, proceeding to dashboard...');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.log('No "You are already signed in" page detected or error handling it:', e);
-      return false;
+  /**
+   * Introduce a random delay between actions to simulate human behavior
+   */
+  private async randomDelay(min: number = MIN_DELAY_MS, max: number = MAX_DELAY_MS): Promise<void> {
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    // Only log in debug mode to reduce noise
+    if (process.env.AUTOMATE_DEBUG === 'true') {
+      console.log(`[RandomDelay] Sleeping for ${delay}ms`);
     }
+    await sleep(delay);
   }
 
   /**

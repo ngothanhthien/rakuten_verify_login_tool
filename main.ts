@@ -26,13 +26,13 @@ async function bootstrap() {
   const hasActiveRats = await customRatSelector.checkAnyActiveRats()
 
   if (!hasActiveRats) {
-    console.error('[Startup] No active RATs found in database.')
-    console.error('[Startup] Please add at least one RAT using: POST /api/rats')
-    console.error('[Startup] Example: curl -X POST http://localhost:3000/api/rats -H "Content-Type: application/json" -d \'{"hash":"your-hash","components":{}}\'')
-    process.exit(1)
+    console.warn('[Startup] No active RATs found in database.')
+    console.warn('[Startup] Please add at least one RAT using: POST /api/rats')
+    console.warn('[Startup] Example: curl -X POST http://localhost:3000/api/rats -H "Content-Type: application/json" -d \'{"components":{}}\'')
+    console.warn('[Startup] Server will start but credential checking may not work properly.')
+  } else {
+    console.log('[Startup] Custom RAT system initialized with active RATs')
   }
-
-  console.log('[Startup] Custom RAT system initialized with active RATs')
 
   const app = createHttpServer(container) // inject use cases, controllers
   const port = process.env.PORT || 3000
