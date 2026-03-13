@@ -30,20 +30,20 @@ rakuten/
 
 ## Proxy Requirements
 
-The application uses a worker-based proxy injection model for credential verification. Each worker requires dedicated proxies to operate efficiently.
+The application supports provider-side load balancing proxies. You can run scanning with a single proxy endpoint, and the proxy provider handles balancing behind that endpoint.
 
 ### Proxy Quantity
 
-- **Minimum**: `CONCURRENCY` proxies (e.g., 40 proxies for default concurrency of 40)
-- **Recommended**: `CONCURRENCY * 2` proxies for full round-robin coverage
-- Each worker is assigned exactly 2 proxies at startup
+- **Minimum**: `1` ACTIVE proxy
+- **Recommended**: 1 stable LB endpoint, or multiple ACTIVE proxies if you want local fallback
+- Workers receive a proxy assignment at startup from the ACTIVE proxy pool
 
 ### Worker Behavior
 
-- Workers round-robin between their 2 assigned proxies
-- Workers terminate automatically when both assigned proxies die
-- Proxy health is monitored continuously
-- Failed proxies are automatically replaced from the available pool
+- Workers use their assigned proxy pool for browser launch
+- Browser launch uses bounded retry attempts to tolerate transient proxy failures
+- In single-endpoint mode, launch failures do not immediately mark the endpoint DEAD
+- In multi-proxy mode, failed proxies can be marked DEAD and workers rotate to the next ACTIVE proxy
 
 ### Configuration
 

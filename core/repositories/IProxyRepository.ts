@@ -13,7 +13,7 @@ export default interface IProxyRepository {
   rotate(oldProxyId: number, newProxyId: number): Promise<void>;
 
   // New methods for proxy injection model
-  assignToWorkers(): Promise<Map<string, import("../value-objects/WorkerProxyAssignment").WorkerProxyAssignment>>;
+  assignToWorkers(workerCount: number): Promise<Map<string, import("../value-objects/WorkerProxyAssignment").WorkerProxyAssignment>>;
   markProxyDead(proxyId: number): Promise<void>;
   getActiveCount(): Promise<number>;
   getTotalCount(): Promise<number>;

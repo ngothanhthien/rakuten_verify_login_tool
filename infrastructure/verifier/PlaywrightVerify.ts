@@ -9,7 +9,6 @@ import { ICustomRatRepository } from "../../core/repositories/ICustomRatReposito
 import * as fs from "fs";
 import * as path from "path";
 import { createRatOverrideScript, CustomRat } from "../../utils/ratOverride";
-import { extractDataUsage } from "../../utils/dataUsageExtractor";
 import { WorkerContext } from "../../core/value-objects/WorkerContext";
 import { getNextProxy, rotateProxyIndex } from "../../core/value-objects/WorkerProxyAssignment";
 import { CustomRatSelector } from '../../application/services/CustomRatSelector';
@@ -23,6 +22,7 @@ const TEST_ACCOUNT = {
 
 const MIN_DELAY_MS = 1000;
 const MAX_DELAY_MS = 3000;
+const MAX_PROXY_LAUNCH_ATTEMPTS = 3;
 
 export default class PlaywrightVerify implements IVerifyService {
   // Default device type - change this to switch between devices
@@ -158,8 +158,8 @@ export default class PlaywrightVerify implements IVerifyService {
 
     const assignment = context.proxyAssignment;
 
-    // Try each available proxy until one works or all fail
-    const maxAttempts = assignment.proxies.length;
+    // Retry browser launch a fixed number of times to absorb transient proxy issues
+    const maxAttempts = MAX_PROXY_LAUNCH_ATTEMPTS;
     let browser;
     let proxy = null;
     let launchSuccess = false;
@@ -192,20 +192,23 @@ export default class PlaywrightVerify implements IVerifyService {
           }
         });
         launchSuccess = true;
-        break; // Success, exit the retry loop
+        break;
       } catch (error) {
         console.error(`[PlaywrightVerify] Failed to launch browser with proxy ${proxy.server}:`, error);
 
-        // Mark proxy as DEAD since launch failed
-        await this.proxyRepository.markProxyDead(proxy.id);
-        console.error(`[PlaywrightVerify] Marked proxy ${proxy.server} (id: ${proxy.id}) as DEAD`);
+        // Only mark proxy as DEAD when we have multiple proxies in assignment.
+        // For single LB endpoint mode, launch failures can be transient and should not permanently kill the endpoint.
+        if (assignment.proxies.length > 1) {
+          await this.proxyRepository.markProxyDead(proxy.id);
+          proxy.status = 'DEAD';
+          console.error(`[PlaywrightVerify] Marked proxy ${proxy.server} (id: ${proxy.id}) as DEAD`);
+        }
 
-        // Rotate to next proxy in local assignment
         rotateProxyIndex(assignment);
 
-        // If this was the last attempt, rethrow the error
         if (attempt === maxAttempts - 1) {
-          throw new Error(`All ${maxAttempts} proxies failed during browser launch. Last error: ${error.message}`);
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to launch browser after ${maxAttempts} attempts. Last error: ${message}`);
         }
       }
     }

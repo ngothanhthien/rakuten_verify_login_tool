@@ -84,15 +84,15 @@ export default class CredentialCheckRunner {
     // Validate minimum proxy count
     const activeProxyCount = await this.proxyRepository.getActiveCount();
 
-    if (activeProxyCount < 2) {
+    if (activeProxyCount < 1) {
       throw new Error(
         `Insufficient proxies: ${activeProxyCount} available, ` +
-        `at least 2 required`
+        `at least 1 required`
       );
     }
 
     // Assign proxies to workers
-    this.workerProxyAssignments = await this.proxyRepository.assignToWorkers();
+    this.workerProxyAssignments = await this.proxyRepository.assignToWorkers(this.concurrency);
 
     if (this.workerProxyAssignments.size === 0) {
       throw new Error('Failed to assign proxies to workers');
@@ -102,12 +102,8 @@ export default class CredentialCheckRunner {
     const totalAssignedProxies = Array.from(this.workerProxyAssignments.values())
       .reduce((sum, a) => sum + a.proxies.length, 0);
 
-    const proxyListStr = Array.from(this.workerProxyAssignments.values())
-      .map(a => `[${a.proxies.map(p => p.server).join(', ')}]`)
-      .join(', ');
-
     console.log(
-      `Assigned ${this.workerProxyAssignments.size} workers with ${totalAssignedProxies} proxies: ${proxyListStr}`
+      `Assigned ${this.workerProxyAssignments.size} workers with ${totalAssignedProxies} proxy slots from ${activeProxyCount} active proxies`
     );
 
     this.isRunning = true;

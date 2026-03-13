@@ -80,14 +80,14 @@ rakuten/
 
 **Dependency Injection**: All dependencies are registered in `container.ts` using Awilix. The container uses scoped lifetimes for repositories and singletons for services.
 
-**CredentialCheckRunner**: The core background service that manages parallel workers for credential checking. Each worker is assigned 2 proxies and round-robins between them. Workers terminate automatically when both assigned proxies die. Configured via environment variables:
+**CredentialCheckRunner**: The core background service that manages parallel workers for credential checking. It requires at least 1 ACTIVE proxy to start and assigns proxies to workers from the ACTIVE proxy pool. Configured via environment variables:
 - `CREDENTIAL_CHECK_CONCURRENCY` - Number of concurrent workers (default: 40, 1 in debug mode)
 - `CREDENTIAL_CHECK_BATCH_SIZE` - Batch size for processing (default: 3)
 - `CREDENTIAL_CHECK_POLLING_INTERVAL_MS` - Polling interval when no credentials to process (default: 1000ms)
 - `CREDENTIAL_CHECK_STALE_TIMEOUT_MINUTES` - Timeout for releasing stale claims (default: 10 minutes)
 - `AUTOMATE_DEBUG` - Set to 'true' to reduce concurrency to 1 for debugging
 
-**Proxy Worker Model**: Each worker gets exactly 2 proxies assigned at startup. Workers round-robin between their assigned proxies and terminate when both die. This requires minimum 2 proxies, with recommended `CONCURRENCY * 2` proxies for optimal coverage.
+**Proxy Worker Model**: Supports provider-side load balancing with a single proxy endpoint. Minimum requirement is 1 ACTIVE proxy. Workers receive proxy assignments from the ACTIVE proxy pool, and launch retry is bounded to handle transient proxy issues.
 
 **Verification Service**: PlaywrightVerify uses Patchright (Playwright fork) to automate browser interactions for credential verification.
 

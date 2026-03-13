@@ -51,9 +51,13 @@ export default class CredentialController {
     }
   }
 
-  startCheck(req: Request, res: Response) {
-    this.credentialCheckRunner.start()
-    res.json({ message: 'Check started' })
+  async startCheck(req: Request, res: Response) {
+    try {
+      await this.credentialCheckRunner.start()
+      res.json({ message: 'Check started' })
+    } catch (error) {
+      res.status(400).json({ message: error?.message ?? 'Internal server error' })
+    }
   }
 
   stopCheck(req: Request, res: Response) {

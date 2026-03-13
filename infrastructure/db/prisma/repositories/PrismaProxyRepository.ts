@@ -125,8 +125,11 @@ export default class PrismaProxyRepository implements IProxyRepository {
   }
 
   async markProxyDead(proxyId: number): Promise<void> {
-    await prisma.proxy.update({
-      where: { id: proxyId },
+    await prisma.proxy.updateMany({
+      where: {
+        id: proxyId,
+        status: { not: 'DEAD' }
+      },
       data: {
         status: 'DEAD',
         updatedAt: new Date()
@@ -134,7 +137,7 @@ export default class PrismaProxyRepository implements IProxyRepository {
     });
   }
 
-  async assignToWorkers(): Promise<Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>> {
+  async assignToWorkers(workerCount: number): Promise<Map<string, import("../../../../core/value-objects/WorkerProxyAssignment").WorkerProxyAssignment>> {
     const { createWorkerProxyAssignment } = await import('../../../../core/value-objects/WorkerProxyAssignment');
 
     return await prisma.$transaction(async (tx) => {
@@ -149,11 +152,8 @@ export default class PrismaProxyRepository implements IProxyRepository {
         return new Map();
       }
 
-      // ALWAYS run with max concurrency (40 workers), regardless of proxy count
       // Each worker gets access to the FULL pool of active proxies
-      const maxConcurrency = 40;
-      const workerCount = maxConcurrency;
-      
+
       // Fetch ALL active proxies for the pool
       const proxies = await tx.$queryRaw<any[]>`
         SELECT * FROM "Proxy"
